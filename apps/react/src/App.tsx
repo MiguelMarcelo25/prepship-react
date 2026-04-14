@@ -225,7 +225,7 @@ function PrepShipRoot() {
         activeStore={activeStore}
       />
 
-      <div className="main">
+      <div className="main bg-bg-base text-text-primary">
         <div
           className={`sidebar-backdrop${mobileMenuOpen ? ' show' : ''}`}
           id="sidebarBackdrop"

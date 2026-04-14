@@ -1,6 +1,7 @@
 import path from 'node:path'
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
+import tailwindcss from '@tailwindcss/vite'
 
 // Production-friendly config:
 //  - SESSION_TOKEN / VITE_SESSION_TOKEN: bundled into the build so the React
@@ -18,7 +19,7 @@ const apiBaseUrl = process.env.VITE_API_BASE_URL ?? ''
 const apiProxyTarget = process.env.VITE_API_PROXY_TARGET ?? 'http://127.0.0.1:4010'
 
 export default defineConfig({
-  plugins: [react()],
+  plugins: [react(), tailwindcss()],
   resolve: {
     alias: {
       '@prepshipv2/contracts': path.resolve(__dirname, '../../packages/contracts/src'),
