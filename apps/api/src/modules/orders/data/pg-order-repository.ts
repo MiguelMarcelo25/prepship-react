@@ -61,7 +61,7 @@ export class PgOrderRepository implements OrderRepository {
     }
     if (query.orderStatus === "awaiting_shipment") {
       clauses.push(`COALESCE(ol.external_shipped, 0) = 0`);
-      clauses.push(`COALESCE(((o.raw::jsonb)->>'externallyFulfilled')::int, 0) <> 1`);
+      clauses.push(`COALESCE((o.raw::jsonb)->>'externallyFulfilled', 'false') NOT IN ('true', '1')`);
       clauses.push(`ship.label_cost IS NULL`);
     } else if (query.orderStatus === "shipped") {
       clauses.push(`(o.orderstatus = 'shipped' OR (o.orderstatus = 'awaiting_shipment' AND ship.label_cost IS NOT NULL))`);
@@ -124,8 +124,8 @@ export class PgOrderRepository implements OrderRepository {
         o.shippingamount,
         CASE WHEN ol.residential IS NULL THEN NULL WHEN ol.residential = 1 THEN 1 ELSE 0 END AS residential,
         CASE
-          WHEN ((o.raw::jsonb)->'shipto'->>'residential') IS NULL THEN NULL
-          WHEN (((o.raw::jsonb)->'shipto'->>'residential')::int) = 1 THEN 1
+          WHEN ((o.raw::jsonb)->'shipTo'->>'residential') IS NULL THEN NULL
+          WHEN ((o.raw::jsonb)->'shipTo'->>'residential') IN ('true', '1') THEN 1
           ELSE 0
         END AS source_residential,
         COALESCE(ol.external_shipped, 0) AS external_shipped,
@@ -165,7 +165,7 @@ export class PgOrderRepository implements OrderRepository {
         c.name AS clientname,
         o.ordernumber,
         CASE
-          WHEN (((o.raw::jsonb)->>'externallyFulfilled')::int) = 1 THEN 'shipped'
+          WHEN COALESCE((o.raw::jsonb)->>'externallyFulfilled', 'false') IN ('true', '1') THEN 'shipped'
           WHEN ship.label_shipmentid IS NOT NULL THEN 'shipped'
           ELSE o.orderstatus
         END AS orderstatus,
@@ -174,8 +174,8 @@ export class PgOrderRepository implements OrderRepository {
         o.weightvalue, o.ordertotal, o.shippingamount,
         CASE WHEN ol.residential IS NULL THEN NULL WHEN ol.residential = 1 THEN 1 ELSE 0 END AS residential,
         CASE
-          WHEN ((o.raw::jsonb)->'shipto'->>'residential') IS NULL THEN NULL
-          WHEN (((o.raw::jsonb)->'shipto'->>'residential')::int) = 1 THEN 1
+          WHEN ((o.raw::jsonb)->'shipTo'->>'residential') IS NULL THEN NULL
+          WHEN ((o.raw::jsonb)->'shipTo'->>'residential') IN ('true', '1') THEN 1
           ELSE 0
         END AS source_residential,
         COALESCE(ol.external_shipped, 0) AS external_shipped,
@@ -279,7 +279,7 @@ export class PgOrderRepository implements OrderRepository {
     }
     if (query.orderStatus === "awaiting_shipment") {
       clauses.push(`COALESCE(ol.external_shipped, 0) = 0`);
-      clauses.push(`COALESCE(((o.raw::jsonb)->>'externallyFulfilled')::int, 0) <> 1`);
+      clauses.push(`COALESCE((o.raw::jsonb)->>'externallyFulfilled', 'false') NOT IN ('true', '1')`);
     }
     clauses.push(`COALESCE((j.value->>'adjustment')::int, 0) = 0`);
     clauses.push(`(j.value->>'sku') IS NOT NULL AND (j.value->>'sku') <> ''`);
@@ -497,7 +497,7 @@ export class PgOrderRepository implements OrderRepository {
 
     if (query.orderStatus === "awaiting_shipment") {
       clauses.push(`COALESCE(ol.external_shipped, 0) = 0`);
-      clauses.push(`COALESCE(((o.raw::jsonb)->>'externallyFulfilled')::int, 0) <> 1`);
+      clauses.push(`COALESCE((o.raw::jsonb)->>'externallyFulfilled', 'false') NOT IN ('true', '1')`);
       clauses.push(`ship.label_cost IS NULL`);
     } else {
       clauses.push(`(o.orderstatus = 'shipped' OR (o.orderstatus = 'awaiting_shipment' AND ship.label_cost IS NOT NULL))`);
