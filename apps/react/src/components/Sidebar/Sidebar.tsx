@@ -301,8 +301,9 @@ export default function Sidebar({
                   </button>
                 </div>
 
-                {/* Expanded store list */}
-                {isExpanded && storeList.length > 0 && (
+                {/* Expanded store list — only render when both stores and counts
+                   have loaded so we don't flash raw "Store XXXXX" placeholders */}
+                {isExpanded && stores.length > 0 && storeList.length > 0 && (
                   <div className="mt-0.5 mb-1 ml-9 flex flex-col">
                     {storeList.map((store) => {
                       const storeActive =
