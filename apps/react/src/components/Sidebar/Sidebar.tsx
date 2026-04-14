@@ -76,7 +76,7 @@ const styles = {
   rootClosedMobile: 'max-md:-translate-x-[110%]',
 
   // Brand header
-  brand: 'h-[60px] px-5 flex items-center border-b border-[var(--color-border-default)]',
+  brand: 'h-[60px] px-5 flex items-center justify-center border-b border-[var(--color-border-default)]',
   brandInner: 'flex items-center gap-2.5',
   brandLogo:
     'flex h-8 w-8 items-center justify-center rounded-[8px] bg-gradient-to-br from-indigo-500 to-violet-600 text-white shadow-sm',
