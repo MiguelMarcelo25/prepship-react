@@ -1,6 +1,7 @@
 import { jsonResponse } from "../common/http/json.ts";
 import { InputValidationError } from "../../../../packages/contracts/src/common/input-validation.ts";
 import { createRouteDispatcher, route } from "./router.ts";
+import { renderLandingPage } from "./landing-page.ts";
 import type { AnalysisHttpHandler } from "../modules/analysis/api/analysis-handler.ts";
 import type { BillingHttpHandler } from "../modules/billing/api/billing-handler.ts";
 import type { ClientsHttpHandler } from "../modules/clients/api/clients-handler.ts";
@@ -52,6 +53,7 @@ export interface AppDependencies {
 
 export function createApp(dependencies: AppDependencies) {
   const dispatchRoute = createRouteDispatcher([
+    route("GET", "/", () => renderLandingPage()),
     route("GET", "/health", () => jsonResponse(200, { ok: true })),
     ...createAnalysisRoutes(dependencies.analysisHandler),
     ...createBillingRoutes(dependencies.billingHandler),
