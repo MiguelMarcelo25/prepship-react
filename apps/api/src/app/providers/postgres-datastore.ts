@@ -6,6 +6,7 @@ import { PgSettingsRepository } from "../../modules/settings/data/pg-settings-re
 import { PgClientRepository } from "../../modules/clients/data/pg-client-repository.ts";
 import { PgShipmentRepository } from "../../modules/shipments/data/pg-shipment-repository.ts";
 import { PgOrderRepository } from "../../modules/orders/data/pg-order-repository.ts";
+import { PgInitRepository } from "../../modules/init/data/pg-init-repository.ts";
 import { SqliteAnalysisRepository } from "../../modules/analysis/data/sqlite-analysis-repository.ts";
 import { SqliteBillingRepository } from "../../modules/billing/data/sqlite-billing-repository.ts";
 import { SqliteClientRepository } from "../../modules/clients/data/sqlite-client-repository.ts";
@@ -51,12 +52,12 @@ export function createPostgresDataStore(
     clientRepository: new PgClientRepository(pgPool),
     shipmentRepository: new PgShipmentRepository(pgPool),
     orderRepository: new PgOrderRepository(pgPool, excludedStoreIds),
+    initRepository: new PgInitRepository(pgPool, excludedStoreIds),
 
     // Not yet ported — still using sqlite fallback:
     queueRepository: new SqliteQueueRepository(sqlite),
     billingRepository: new SqliteBillingRepository(sqlite),
     analysisRepository: new SqliteAnalysisRepository(sqlite),
-    initRepository: new SqliteInitRepository(sqlite, excludedStoreIds),
     inventoryRepository: new SqliteInventoryRepository(sqlite),
     labelRepository: new SqliteLabelRepository(sqlite, mainApiKeyV2),
     manifestRepository: new SqliteManifestRepository(sqlite),
