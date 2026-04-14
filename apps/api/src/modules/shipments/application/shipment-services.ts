@@ -50,10 +50,11 @@ export class ShipmentServices {
     return { queued: true, mode: full ? "full" : "incremental" };
   }
 
-  getLegacyStatus(): LegacySyncStatusDto {
+  async getLegacyStatus(): Promise<LegacySyncStatusDto> {
+    const lastSync = await this.repository.getLastShipmentSync();
     return {
       ...this.legacySyncStatus,
-      lastSync: this.repository.getLastShipmentSync() ?? this.legacySyncStatus.lastSync,
+      lastSync: lastSync ?? this.legacySyncStatus.lastSync,
     };
   }
 
@@ -73,10 +74,14 @@ export class ShipmentServices {
     }
   }
 
-  getStatus(): ShipmentSyncStatusDto {
+  async getStatus(): Promise<ShipmentSyncStatusDto> {
+    const [count, lastSync] = await Promise.all([
+      this.repository.countActiveShipments(),
+      this.repository.getLastShipmentSync(),
+    ]);
     return {
-      count: this.repository.countActiveShipments(),
-      lastSync: this.repository.getLastShipmentSync(),
+      count,
+      lastSync,
       running: this.running,
     };
   }
@@ -87,14 +92,11 @@ export class ShipmentServices {
     return result.raw;
   }
 
-  private buildSyncAccounts(): ShipmentSyncAccountRecord[] {
+  private async buildSyncAccounts(): Promise<ShipmentSyncAccountRecord[]> {
     const accounts: ShipmentSyncAccountRecord[] = [];
     const mainApiKey = this.secrets.shipstation?.api_key ?? null;
     const mainApiSecret = this.secrets.shipstation?.api_secret ?? null;
 
-    // Legacy parity: shipment sync runs the global main account first, then
-    // iterates client accounts separately. If clientId=1 also exists in
-    // clients, the processed count can exceed the number of unique rows.
     if (mainApiKey && mainApiSecret) {
       accounts.push({
         clientId: 1,
@@ -105,16 +107,15 @@ export class ShipmentServices {
       });
     }
 
+    const repoAccounts = await this.repository.listSyncAccounts();
     return accounts.concat(
-      this.repository
-        .listSyncAccounts()
-        .filter((account) => Boolean(account.v1ApiKey && account.v1ApiSecret)),
+      repoAccounts.filter((account) => Boolean(account.v1ApiKey && account.v1ApiSecret)),
     );
   }
 
   private async runSync(mode: "incremental" | "full"): Promise<void> {
-    const accounts = this.buildSyncAccounts();
-    const lastSync = this.repository.getLastShipmentSync();
+    const accounts = await this.buildSyncAccounts();
+    const lastSync = await this.repository.getLastShipmentSync();
     const createdAtStart = lastSync ? new Date(lastSync - 60_000).toISOString() : undefined;
     const updatedAt = Date.now();
     let totalProcessed = 0;
@@ -155,14 +156,16 @@ export class ShipmentServices {
           const result = await this.gateway.listShipments(credentials, params);
           if (result.shipments.length === 0) break;
 
-          const normalized = result.shipments.flatMap((shipment) => {
+          const normalized: ShipmentSyncRecord[] = [];
+          for (const shipment of result.shipments) {
             let orderId = shipment.orderId;
             if (shipment.orderNumber) {
-              const resolved = this.repository.resolveOrderIdByOrderNumber(shipment.orderNumber);
+              const resolved = await this.repository.resolveOrderIdByOrderNumber(shipment.orderNumber);
               if (resolved) orderId = resolved;
             }
-            if (!this.repository.orderExists(orderId)) return [];
-            return [{
+            if (!(await this.repository.orderExists(orderId))) continue;
+            const clientId = (await this.repository.getOrderClientId(orderId)) ?? account.clientId;
+            normalized.push({
               shipmentId: shipment.shipmentId,
               orderId,
               orderNumber: shipment.orderNumber,
@@ -180,14 +183,14 @@ export class ShipmentServices {
               dimsWidth: shipment.dimsWidth,
               dimsHeight: shipment.dimsHeight,
               updatedAt,
-              clientId: this.repository.getOrderClientId(orderId) ?? account.clientId,
+              clientId,
               source: "shipstation",
-            }];
-          });
+            });
+          }
 
           if (normalized.length > 0) {
-            this.repository.upsertShipmentBatch(normalized);
-            this.repository.backfillOrderLocalFromShipments(normalized);
+            await this.repository.upsertShipmentBatch(normalized);
+            await this.repository.backfillOrderLocalFromShipments(normalized);
             totalProcessed += normalized.length;
             this.legacySyncStatus = {
               ...this.legacySyncStatus,
@@ -203,7 +206,7 @@ export class ShipmentServices {
       }
 
       const completedAt = Date.now();
-      this.repository.setLastShipmentSync(completedAt);
+      await this.repository.setLastShipmentSync(completedAt);
       this.legacySyncStatus = {
         ...this.legacySyncStatus,
         status: "done",

@@ -45,34 +45,34 @@ export class OrdersHttpHandler {
     return this.listOrdersService.execute(query);
   }
 
-  handleGetById(orderId: number) {
+  async handleGetById(orderId: number) {
     return this.orderDetailsService.execute(orderId);
   }
 
-  handleGetIds(requestUrl: URL) {
+  async handleGetIds(requestUrl: URL) {
     const query = parseGetOrderIdsQuery(requestUrl);
     return this.getOrderIdsService.execute(query);
   }
 
-  handlePicklist(requestUrl: URL) {
+  async handlePicklist(requestUrl: URL) {
     const query = parseOrderPicklistQuery(requestUrl);
     return this.orderPicklistService.execute(query);
   }
 
-  handleGetFull(orderId: number) {
+  async handleGetFull(orderId: number) {
     return this.orderFullService.execute(orderId);
   }
 
-  handleDailyStats() {
+  async handleDailyStats() {
     return this.orderDailyStatsService.execute();
   }
 
-  handleExport(requestUrl: URL) {
+  async handleExport(requestUrl: URL) {
     const query = parseOrderExportQuery(requestUrl);
     return this.orderExportService.execute(query);
   }
 
-  handleStoreCounts(requestUrl: URL) {
+  async handleStoreCounts(requestUrl: URL) {
     const orderStatus = requestUrl.searchParams.get('orderStatus');
     if (!orderStatus) {
       throw new InputValidationError('orderStatus query parameter is required');
@@ -82,7 +82,7 @@ export class OrdersHttpHandler {
     return this.updateOrderOverridesService.repository.getStoreCounts(orderStatus, dateStart, dateEnd);
   }
 
-  handleSetExternalShipped(orderId: number, payload: { flag?: number | boolean; source?: string }) {
+  async handleSetExternalShipped(orderId: number, payload: { flag?: number | boolean; source?: string }) {
     const flag = payload.flag;
     const source = payload.source ?? null;
     if (flag == null) {
@@ -97,7 +97,7 @@ export class OrdersHttpHandler {
     throw new InputValidationError("flag must be boolean or 0/1");
   }
 
-  handleSetResidential(orderId: number, payload: { residential?: boolean | null }) {
+  async handleSetResidential(orderId: number, payload: { residential?: boolean | null }) {
     if (!("residential" in payload) || payload.residential === undefined) {
       return this.updateOrderOverridesService.setResidential(orderId, null);
     }
@@ -107,7 +107,7 @@ export class OrdersHttpHandler {
     return this.updateOrderOverridesService.setResidential(orderId, payload.residential ?? null);
   }
 
-  handleSetSelectedPid(orderId: number, payload: { selectedPid?: number | null }) {
+  async handleSetSelectedPid(orderId: number, payload: { selectedPid?: number | null }) {
     if (!("selectedPid" in payload) || payload.selectedPid === undefined) {
       return this.updateOrderOverridesService.setSelectedPid(orderId, null);
     }
@@ -119,7 +119,7 @@ export class OrdersHttpHandler {
     return this.updateOrderOverridesService.setSelectedPid(orderId, payload.selectedPid ?? null);
   }
 
-  handleSetBestRate(orderId: number, payload: { best?: unknown; dims?: string | null }) {
+  async handleSetBestRate(orderId: number, payload: { best?: unknown; dims?: string | null }) {
     if (payload.dims !== undefined && payload.dims !== null && typeof payload.dims !== "string") {
       throw new InputValidationError("dims must be a string or null");
     }
@@ -130,9 +130,8 @@ export class OrdersHttpHandler {
     });
   }
 
-  handleGetDims(orderId: number) {
-    // Get dims for the order's primary SKU+QTY combo (from sku_qty_dims)
-    const record = this.orderDetailsService.getRecord(orderId);
+  async handleGetDims(orderId: number) {
+    const record = await this.orderDetailsService.getRecord(orderId);
     if (!record) throw new Error(`Order ${orderId} not found`);
     let parsedItems: Array<{ sku?: string; quantity?: number; adjustment?: boolean }> = [];
     try {
@@ -143,8 +142,7 @@ export class OrdersHttpHandler {
     if (uniqueSkus.length === 1) {
       const sku = uniqueSkus[0] as string;
       const qty = activeItems.filter((i) => i.sku === sku).reduce((s, i) => s + (i.quantity ?? 1), 0);
-      const dims = this.updateOrderOverridesService.repository.getSkuQtyDims(sku, qty);
-      // Validate dims against order weight: heavy order + tiny box = stale data
+      const dims = await this.updateOrderOverridesService.repository.getSkuQtyDims(sku, qty);
       if (dims) {
         const orderWeightOz = record.weightValue ?? 0;
         const cubicInches = dims.length * dims.width * dims.height;
@@ -157,7 +155,7 @@ export class OrdersHttpHandler {
     return { orderId, sku: null, qty: null, dims: null };
   }
 
-  handleSaveDims(orderId: number, payload: {
+  async handleSaveDims(orderId: number, payload: {
     length?: unknown;
     width?: unknown;
     height?: unknown;

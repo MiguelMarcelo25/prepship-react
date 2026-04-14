@@ -16,9 +16,9 @@ function parseClientId(rawClientId: string): number {
 
 export function createClientRoutes(handler: ClientsHttpHandler): RouteDef[] {
   return [
-    jsonRoute("GET", "/api/clients", () => handler.handleList()),
+    jsonRoute("GET", "/api/clients", async () => handler.handleList()),
     jsonRoute("POST", "/api/clients", async ({ readJson }) => handler.handleCreate(await readJson()), { getErrorStatus: getCreateErrorStatus }),
-    jsonRoute("POST", "/api/clients/sync-stores", () => handler.handleSyncStores(), { getErrorStatus }),
+    jsonRoute("POST", "/api/clients/sync-stores", async () => handler.handleSyncStores(), { getErrorStatus }),
     jsonRoute(
       "PUT",
       "/api/clients/:clientId(int)",
@@ -28,7 +28,7 @@ export function createClientRoutes(handler: ClientsHttpHandler): RouteDef[] {
     jsonRoute(
       "DELETE",
       "/api/clients/:clientId(int)",
-      ({ params }) => handler.handleDelete(parseClientId(params.clientId ?? "0")),
+      async ({ params }) => handler.handleDelete(parseClientId(params.clientId ?? "0")),
       { getErrorStatus: () => 500 },
     ),
   ];

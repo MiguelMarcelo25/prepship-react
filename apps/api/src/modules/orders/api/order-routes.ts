@@ -18,13 +18,13 @@ function inputErrorStatusWithMessages(messages: string[]) {
 
 export function createOrderRoutes(handler: OrdersHttpHandler): RouteDef[] {
   return [
-    jsonRoute("GET", "/api/orders", ({ url }) => handler.handleList(url), { getErrorStatus: inputErrorStatus }),
-    jsonRoute("GET", "/api/orders/ids", ({ url }) => handler.handleGetIds(url), { getErrorStatus: inputErrorStatusWithMessages(["sku required"]) }),
-    jsonRoute("GET", "/api/orders/picklist", ({ url }) => handler.handlePicklist(url), { getErrorStatus: inputErrorStatus }),
-    jsonRoute("GET", "/api/orders/daily-stats", () => handler.handleDailyStats(), { getErrorStatus: inputErrorStatus }),
-    route("GET", "/api/orders/export", ({ url }) => {
+    jsonRoute("GET", "/api/orders", async ({ url }) => handler.handleList(url), { getErrorStatus: inputErrorStatus }),
+    jsonRoute("GET", "/api/orders/ids", async ({ url }) => handler.handleGetIds(url), { getErrorStatus: inputErrorStatusWithMessages(["sku required"]) }),
+    jsonRoute("GET", "/api/orders/picklist", async ({ url }) => handler.handlePicklist(url), { getErrorStatus: inputErrorStatus }),
+    jsonRoute("GET", "/api/orders/daily-stats", async () => handler.handleDailyStats(), { getErrorStatus: inputErrorStatus }),
+    route("GET", "/api/orders/export", async ({ url }) => {
       try {
-        const result = handler.handleExport(url);
+        const result = await handler.handleExport(url);
         return new Response(result.body, {
           status: 200,
           headers: {
@@ -38,16 +38,16 @@ export function createOrderRoutes(handler: OrdersHttpHandler): RouteDef[] {
         });
       }
     }),
-    jsonRoute("GET", "/api/orders/store-counts", ({ url }) => handler.handleStoreCounts(url), { getErrorStatus: inputErrorStatus }),
-    route("GET", "/api/orders/:orderId(int)/full", ({ params }) => {
-      const payload = handler.handleGetFull(parseOrderId(params.orderId ?? "0"));
+    jsonRoute("GET", "/api/orders/store-counts", async ({ url }) => handler.handleStoreCounts(url), { getErrorStatus: inputErrorStatus }),
+    route("GET", "/api/orders/:orderId(int)/full", async ({ params }) => {
+      const payload = await handler.handleGetFull(parseOrderId(params.orderId ?? "0"));
       if (!payload) {
         return jsonResponse(404, { error: "Order not found" });
       }
       return jsonResponse(200, payload);
     }),
-    route("GET", "/api/orders/:orderId(int)", ({ params }) => {
-      const payload = handler.handleGetById(parseOrderId(params.orderId ?? "0"));
+    route("GET", "/api/orders/:orderId(int)", async ({ params }) => {
+      const payload = await handler.handleGetById(parseOrderId(params.orderId ?? "0"));
       if (!payload) {
         return jsonResponse(404, { error: "Order not found" });
       }
@@ -97,7 +97,7 @@ export function createOrderRoutes(handler: OrdersHttpHandler): RouteDef[] {
     jsonRoute(
       "GET",
       "/api/orders/:orderId(int)/dims",
-      ({ params }) => handler.handleGetDims(parseOrderId(params.orderId ?? "0")),
+      async ({ params }) => handler.handleGetDims(parseOrderId(params.orderId ?? "0")),
       { getErrorStatus: () => 500 },
     ),
   ];

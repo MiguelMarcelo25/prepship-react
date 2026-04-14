@@ -179,7 +179,7 @@ export class ListOrdersService {
   }
 
   async execute(query: ListOrdersQuery): Promise<ListOrdersResponse> {
-    const result = this.repository.list(query);
+    const result = await this.repository.list(query);
 
     // Enrich orders with ShipStation residential status BEFORE mapping to DTO
     // This ensures rates are fetched with the correct residential flag
