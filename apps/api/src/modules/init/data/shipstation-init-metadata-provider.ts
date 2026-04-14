@@ -12,29 +12,29 @@ interface CacheEntry<T> {
 export class ShipstationInitMetadataProvider implements InitMetadataProvider {
   private readonly storesCache: CacheEntry<InitStoreDto[]>;
   private readonly carriersCache: CacheEntry<unknown[]>;
-  private readonly apiKey: string;
-  private readonly apiSecret: string;
+  private readonly apiKey: string | null;
+  private readonly apiSecret: string | null;
   private readonly carrierAccounts: CarrierAccountDto[];
 
   constructor(secrets: TransitionalSecrets, carrierAccounts: CarrierAccountDto[]) {
-    const apiKey = secrets.shipstation?.api_key;
-    const apiSecret = secrets.shipstation?.api_secret;
-    if (!apiKey || !apiSecret) {
-      throw new Error("Transitional ShipStation v1 credentials are required for init metadata");
-    }
-
-    this.apiKey = apiKey;
-    this.apiSecret = apiSecret;
+    // Credentials are optional. Without them, listStores/listCarriers return
+    // empty arrays so cloud deploys (Render, Vercel) can boot without real
+    // ShipStation access. Endpoints that depend on remote SS metadata will
+    // simply show empty results.
+    this.apiKey = secrets.shipstation?.api_key ?? null;
+    this.apiSecret = secrets.shipstation?.api_secret ?? null;
     this.carrierAccounts = carrierAccounts;
     this.storesCache = { data: null, fetchedAt: 0, ttlMs: 15 * 60 * 1000 };
     this.carriersCache = { data: null, fetchedAt: 0, ttlMs: 24 * 60 * 60 * 1000 };
   }
 
   async listStores(): Promise<InitStoreDto[]> {
+    if (!this.apiKey || !this.apiSecret) return [];
     return this.getCached<InitStoreDto[]>("/stores", this.storesCache);
   }
 
   async listCarriers(): Promise<unknown[]> {
+    if (!this.apiKey || !this.apiSecret) return [];
     return this.getCached<unknown[]>("/carriers", this.carriersCache);
   }
 
@@ -56,7 +56,7 @@ export class ShipstationInitMetadataProvider implements InitMetadataProvider {
     const client = getShipStationClient();
     try {
       const data = await client.v1<T>(
-        { apiKey: this.apiKey, apiSecret: this.apiSecret },
+        { apiKey: this.apiKey as string, apiSecret: this.apiSecret as string },
         path,
         { deduplicate: true },
       );

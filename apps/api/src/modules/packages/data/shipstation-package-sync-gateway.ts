@@ -3,20 +3,17 @@ import type { ExternalCarrierPackageRecord, PackageSyncGateway } from "../applic
 import { getShipStationClient } from "../../../common/shipstation/client.ts";
 
 export class ShipstationPackageSyncGateway implements PackageSyncGateway {
-  private readonly apiKey: string;
-  private readonly apiSecret: string;
+  private readonly apiKey: string | null;
+  private readonly apiSecret: string | null;
 
   constructor(secrets: TransitionalSecrets) {
-    const apiKey = secrets.shipstation?.api_key;
-    const apiSecret = secrets.shipstation?.api_secret;
-    if (!apiKey || !apiSecret) {
-      throw new Error("Transitional ShipStation v1 credentials are required for package sync");
-    }
-    this.apiKey = apiKey;
-    this.apiSecret = apiSecret;
+    // Optional creds — return empty package list when missing so cloud deploys boot.
+    this.apiKey = secrets.shipstation?.api_key ?? null;
+    this.apiSecret = secrets.shipstation?.api_secret ?? null;
   }
 
   async listCarrierPackages(carrierCode: string): Promise<ExternalCarrierPackageRecord[]> {
+    if (!this.apiKey || !this.apiSecret) return [];
     const client = getShipStationClient();
     const payload = await client.v1<Array<Record<string, unknown>>>(
       { apiKey: this.apiKey, apiSecret: this.apiSecret },

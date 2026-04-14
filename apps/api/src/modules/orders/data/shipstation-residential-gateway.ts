@@ -12,16 +12,17 @@ export interface ResidentialLookupResult {
  * Why this matters: If we guess "residential" wrong, we fetch the wrong rates and show incorrect pricing.
  */
 export class ShipstationResidentialGateway {
-  private readonly authHeader: string;
+  private readonly authHeader: string | null;
   private readonly baseUrl = "https://ssapi.shipstation.com";
 
   constructor(secrets: TransitionalSecrets) {
+    // Optional creds — when missing, lookupResidential returns nulls and the
+    // caller falls back to company-based residential heuristic.
     const apiKey = secrets.shipstation?.api_key;
     const apiSecret = secrets.shipstation?.api_secret;
-    if (!apiKey || !apiSecret) {
-      throw new Error("ShipStation API credentials required for residential lookup");
-    }
-    this.authHeader = `Basic ${Buffer.from(`${apiKey}:${apiSecret}`).toString("base64")}`;
+    this.authHeader = apiKey && apiSecret
+      ? `Basic ${Buffer.from(`${apiKey}:${apiSecret}`).toString("base64")}`
+      : null;
   }
 
   /**
@@ -36,8 +37,11 @@ export class ShipstationResidentialGateway {
   async lookupResidential(
     shipStationOrderIds: Array<{ orderId: number; shipStationOrderNumber: string | null }>,
   ): Promise<ResidentialLookupResult[]> {
-    // If no ShipStation order numbers, return nulls
     if (!shipStationOrderIds.length) {
+      return shipStationOrderIds.map((item) => ({ orderId: item.orderId, residential: null }));
+    }
+    // No creds → fall back to nulls; caller uses company-based heuristic.
+    if (!this.authHeader) {
       return shipStationOrderIds.map((item) => ({ orderId: item.orderId, residential: null }));
     }
 
