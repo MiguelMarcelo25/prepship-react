@@ -159,13 +159,18 @@ export default function Sidebar({
   return (
     <aside
       className={[
-        'flex flex-col h-full w-[272px] flex-shrink-0',
+        'flex flex-col w-[268px] flex-shrink-0',
+        // Floating sidebar — lifted off the edges with margin, rounded, soft shadow
+        'my-4 ml-4',
+        'h-[calc(100%-2rem)]',
         'bg-[var(--color-bg-surface)]',
-        'border-r border-[var(--color-border-default)]',
+        'border border-[var(--color-border-default)]',
+        'rounded-2xl shadow-sm',
+        'overflow-hidden',
         'font-sans',
         'transition-transform duration-200 ease-out',
         mobileMenuOpen ? 'translate-x-0' : 'max-md:-translate-x-full',
-        'max-md:fixed max-md:inset-y-0 max-md:left-0 max-md:z-40',
+        'max-md:fixed max-md:inset-y-4 max-md:left-4 max-md:z-40',
       ].join(' ')}
     >
       {/* Brand header */}
