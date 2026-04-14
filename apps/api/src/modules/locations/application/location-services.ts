@@ -43,9 +43,15 @@ export class LocationServices {
     this.shipFromState = shipFromState;
   }
 
-  static async create(repository: LocationRepository, shipFromState: ShipFromState): Promise<LocationServices> {
+  static create(repository: LocationRepository, shipFromState: ShipFromState): LocationServices {
     const services = new LocationServices(repository, shipFromState);
-    await services.refreshDefault();
+    // Fire-and-forget the initial default refresh so bootstrap doesn't block
+    // on a cold Postgres connection. Render's free tier has a tight port-bind
+    // timeout; if the first query to Supabase takes >120s the deploy times out
+    // and the old build keeps serving.
+    services.refreshDefault().catch((err) => {
+      console.warn("[LocationServices] initial default refresh failed:", err);
+    });
     return services;
   }
 

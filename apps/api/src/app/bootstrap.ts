@@ -64,8 +64,11 @@ export interface BootstrapApiOverrides {
 }
 
 export async function bootstrapApi(env = process.env, overrides: BootstrapApiOverrides = {}) {
+  console.log(`[boot] loadAppConfig`);
   const config = loadAppConfig(env);
+  console.log(`[boot] buildDataStore provider=${config.dbProvider}`);
   const dataStore = overrides.dataStore ?? await buildDataStore(config, overrides.memorySeed);
+  console.log(`[boot] datastore ready; wiring services`);
   const rateShopper = overrides.rateShopper ?? new ShipstationRateShopper();
   const billingServices = new BillingServices(
     dataStore.billingRepository,
@@ -84,7 +87,7 @@ export async function bootstrapApi(env = process.env, overrides: BootstrapApiOve
   const shippingGateway = overrides.shippingGateway ?? new ShipstationShippingGateway(config.secrets);
   const labelServices = new LabelServices(dataStore.labelRepository, shippingGateway, config.secrets);
   const labelsHandler = new LabelsHttpHandler(labelServices);
-  const locationServices = await LocationServices.create(dataStore.locationRepository, dataStore.shipFromState);
+  const locationServices = LocationServices.create(dataStore.locationRepository, dataStore.shipFromState);
   const locationsHandler = new LocationsHttpHandler(locationServices);
   const manifestServices = new ManifestServices(dataStore.manifestRepository);
   const manifestsHandler = new ManifestsHttpHandler(manifestServices);

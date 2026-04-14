@@ -25,7 +25,10 @@ try {
   // .env file doesn't exist, use existing process.env
 }
 
+console.log(`[boot] node=${process.version} pid=${process.pid} port=${process.env.PORT ?? process.env.API_PORT ?? "(unset)"}`);
+console.log(`[boot] calling bootstrapApi...`);
 const { config, app } = await bootstrapApi(process.env, {});
+console.log(`[boot] bootstrapApi returned; starting HTTP server on port ${config.port}`);
 
 startHttpServer(app, config.port).then(() => {
   console.log(`PrepshipV2 API listening on http://127.0.0.1:${config.port}`);
