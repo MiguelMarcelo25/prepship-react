@@ -313,6 +313,293 @@ button:focus-visible {
 }
 
 /* ══════════════════════════════════════════════
+   MODERN ORDERS VIEW — filterbar + stats + table + empty panel
+   This is the densest, most-looked-at part of the app. Everything here
+   was originally 12.5px with 5-6px padding. Modern apps use 13-14px with
+   12-16px padding. These overrides affect every view that uses the
+   shared .orders-table / .filterbar / .stats-bar classes.
+════════════════════════════════════════════════ */
+
+/* Filter bar — taller, more breathing room, softer divider */
+.filterbar {
+  padding: 14px 20px !important;
+  gap: 10px !important;
+  background: var(--surface) !important;
+  border-bottom: 1px solid var(--border) !important;
+  align-items: center !important;
+}
+
+/* Search input + filter selects — bigger, softer, rounded */
+.search-wrap {
+  max-width: 320px !important;
+}
+.search-wrap input {
+  padding: 9px 12px 9px 34px !important;
+  font-size: 13px !important;
+  border-radius: 8px !important;
+  background: var(--surface2) !important;
+  border: 1px solid transparent !important;
+  transition: all 0.15s ease !important;
+  height: 36px;
+}
+.search-wrap input:focus {
+  border-color: var(--ss-blue) !important;
+  background: var(--surface) !important;
+  box-shadow: 0 0 0 3px rgb(99 102 241 / 0.1);
+}
+.search-wrap::before {
+  font-size: 15px !important;
+  left: 11px !important;
+  color: var(--text3) !important;
+}
+.filter-sel {
+  padding: 9px 12px !important;
+  font-size: 13px !important;
+  border-radius: 8px !important;
+  background: var(--surface) !important;
+  border: 1px solid var(--border2) !important;
+  height: 36px;
+  transition: all 0.15s ease !important;
+}
+.filter-sel:hover {
+  border-color: var(--ss-blue) !important;
+}
+.filter-sel:focus {
+  border-color: var(--ss-blue) !important;
+  box-shadow: 0 0 0 3px rgb(99 102 241 / 0.1);
+  outline: none !important;
+}
+
+/* Stats bar — card-like layout instead of compressed strip */
+.stats-bar {
+  padding: 14px 20px !important;
+  background: var(--surface) !important;
+  border-bottom: 1px solid var(--border) !important;
+  gap: 6px !important;
+}
+.stat-item {
+  padding: 6px 20px !important;
+  min-width: 88px !important;
+  gap: 2px;
+}
+.stat-item:first-child {
+  padding-left: 4px !important;
+}
+.stat-val {
+  font-size: 22px !important;
+  font-weight: 700 !important;
+  letter-spacing: -0.02em;
+  line-height: 1.1 !important;
+  color: var(--text) !important;
+}
+.stat-lbl {
+  font-size: 10px !important;
+  font-weight: 600 !important;
+  letter-spacing: 0.05em !important;
+  color: var(--text3) !important;
+  margin-top: 2px;
+}
+.stat-sep {
+  height: 32px !important;
+  background: var(--border) !important;
+  opacity: 0.6;
+}
+.stat-item.stat-alert .stat-val {
+  color: #ef4444 !important;
+}
+.stat-item.stat-warn .stat-val {
+  color: #f59e0b !important;
+}
+
+/* Orders TABLE — the main event */
+.orders-wrap {
+  padding-bottom: 20px !important;
+  background: var(--bg) !important;
+}
+.orders-table {
+  font-size: 13px !important;
+  border-collapse: separate !important;
+  border-spacing: 0 !important;
+}
+/* Kill the zebra stripe — flat rows look modern */
+.orders-table tbody tr:nth-child(even) td {
+  background: var(--surface) !important;
+}
+.orders-table tbody tr:nth-child(odd) td {
+  background: var(--surface) !important;
+}
+/* Header — cleaner, not surface2 */
+.orders-table thead {
+  background: var(--surface) !important;
+}
+.orders-table th {
+  padding: 12px 14px !important;
+  font-size: 10.5px !important;
+  font-weight: 600 !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.06em !important;
+  color: var(--text3) !important;
+  border-bottom: 1px solid var(--border) !important;
+  background: var(--surface) !important;
+  white-space: nowrap;
+}
+.orders-table th.sortable:hover {
+  background: var(--surface2) !important;
+  color: var(--text) !important;
+}
+/* Cell padding + typography */
+.orders-table td {
+  padding: 14px !important;
+  border-bottom: 1px solid var(--border) !important;
+  color: var(--text) !important;
+  font-size: 13px !important;
+  vertical-align: middle !important;
+}
+/* Row hover — soft indigo tint, not harsh */
+.orders-table tbody tr {
+  transition: background-color 0.12s ease !important;
+}
+.orders-table tbody tr:hover td {
+  background: var(--surface2) !important;
+}
+/* Selected */
+.orders-table tbody tr.row-selected td {
+  background: rgb(99 102 241 / 0.06) !important;
+}
+/* Active (panel open) */
+.orders-table tbody tr.row-panel-open td {
+  background: rgb(99 102 241 / 0.09) !important;
+}
+.orders-table tbody tr.row-panel-open td:first-child {
+  border-left: 3px solid var(--ss-blue) !important;
+}
+/* Keyboard focused */
+.orders-table tbody tr.row-kb-focus td {
+  background: rgb(99 102 241 / 0.12) !important;
+}
+/* "Exception" (warning) rows — softer orange accent */
+.orders-table tbody tr.row-exception td:first-child {
+  border-left: 3px solid #f59e0b !important;
+}
+
+/* Order number cell — indigo link */
+.order-num {
+  font-weight: 600 !important;
+  font-size: 13px !important;
+  color: var(--ss-blue) !important;
+}
+
+/* Client badge — rounded pill */
+.client-badge {
+  padding: 3px 10px !important;
+  border-radius: 999px !important;
+  font-size: 11px !important;
+  font-weight: 600 !important;
+  background: rgb(99 102 241 / 0.08) !important;
+  color: var(--ss-blue) !important;
+  border: none !important;
+  letter-spacing: 0.01em;
+}
+
+/* Customer name — slightly larger */
+.customer-name {
+  font-size: 13px !important;
+  font-weight: 500 !important;
+  color: var(--text) !important;
+}
+
+/* Item name cell — clean truncation */
+.cell-itemname {
+  gap: 10px !important;
+}
+.cell-itemname img {
+  border-radius: 6px !important;
+  width: 28px !important;
+  height: 28px !important;
+  object-fit: cover !important;
+  flex-shrink: 0 !important;
+}
+
+/* Carrier badge — pill shape */
+.carrier-badge {
+  padding: 3px 10px !important;
+  border-radius: 999px !important;
+  font-size: 10.5px !important;
+  font-weight: 600 !important;
+  letter-spacing: 0.02em;
+  text-transform: uppercase !important;
+}
+
+/* SKU link */
+.sku-link {
+  color: var(--ss-blue) !important;
+  font-weight: 500 !important;
+  font-family: ui-monospace, "SF Mono", "Cascadia Mono", monospace !important;
+  font-size: 11.5px !important;
+}
+
+/* Age dot — bigger */
+.age-dot {
+  width: 8px !important;
+  height: 8px !important;
+  margin-right: 6px !important;
+}
+
+/* Row actions (appear on hover) */
+.row-act-btn {
+  padding: 4px 10px !important;
+  font-size: 10.5px !important;
+  border-radius: 6px !important;
+  background: var(--surface) !important;
+  border-color: var(--border2) !important;
+  font-weight: 500 !important;
+  transition: all 0.15s ease !important;
+}
+.row-act-btn:hover {
+  background: var(--ss-blue) !important;
+  color: #fff !important;
+  border-color: var(--ss-blue) !important;
+  transform: translateY(-1px);
+}
+
+/* Empty right panel — modern icon card */
+.react-empty-panel {
+  padding: 40px 24px !important;
+  gap: 12px !important;
+}
+.react-empty-panel-icon {
+  font-size: 48px !important;
+  opacity: 0.4;
+  filter: grayscale(0.3);
+}
+.react-empty-panel-title {
+  font-size: 15px !important;
+  font-weight: 600 !important;
+  color: var(--text) !important;
+  letter-spacing: -0.01em;
+}
+.react-empty-panel-copy {
+  font-size: 13px !important;
+  color: var(--text3) !important;
+  max-width: 280px !important;
+  line-height: 1.55 !important;
+}
+
+/* Pagination bar — cleaner spacing */
+.pagination-bar {
+  padding: 12px 20px !important;
+  background: var(--surface) !important;
+  border-top: 1px solid var(--border) !important;
+  gap: 10px !important;
+}
+
+/* Remove harsh corner borders on tables (make them flow naturally) */
+.orders-wrap,
+.orders-table {
+  border: none !important;
+}
+
+/* ══════════════════════════════════════════════
    Base app layout — the root shell that hosts both Tailwind-styled
    components and legacy CSS-styled views.
 ════════════════════════════════════════════════ */
