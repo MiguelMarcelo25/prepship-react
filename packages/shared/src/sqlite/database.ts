@@ -212,6 +212,115 @@ export function openSqliteDatabase(filename: string): DatabaseSync {
       active INTEGER DEFAULT 1, createdAt INTEGER, updatedAt INTEGER
     );
 
+    CREATE TABLE IF NOT EXISTS billing_line_items (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      clientId INTEGER NOT NULL,
+      orderId INTEGER NOT NULL,
+      orderNumber TEXT NOT NULL,
+      shipDate TEXT NOT NULL,
+      lineType TEXT NOT NULL,
+      description TEXT NOT NULL,
+      qty REAL NOT NULL,
+      unitCost REAL NOT NULL,
+      totalCost REAL NOT NULL,
+      invoiced INTEGER DEFAULT 0,
+      createdAt INTEGER,
+      UNIQUE(orderId, lineType, description)
+    );
+
+    CREATE TABLE IF NOT EXISTS billing_ref_rates (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      wt INTEGER, zipTo TEXT, carrier TEXT, service TEXT,
+      cost REAL, source TEXT, fetchedAt INTEGER
+    );
+
+    CREATE TABLE IF NOT EXISTS client_package_prices (
+      clientId INTEGER NOT NULL,
+      packageId INTEGER NOT NULL,
+      price REAL NOT NULL,
+      is_custom INTEGER DEFAULT 0,
+      updatedAt INTEGER,
+      PRIMARY KEY (clientId, packageId)
+    );
+
+    CREATE TABLE IF NOT EXISTS parent_skus (
+      parentSkuId INTEGER PRIMARY KEY AUTOINCREMENT,
+      clientId INTEGER NOT NULL,
+      name TEXT NOT NULL,
+      sku TEXT,
+      baseUnitQty INTEGER DEFAULT 1,
+      createdAt INTEGER,
+      updatedAt INTEGER
+    );
+
+    CREATE TABLE IF NOT EXISTS return_labels (
+      shipmentId INTEGER PRIMARY KEY,
+      returnShipmentId INTEGER,
+      returnTrackingNumber TEXT,
+      reason TEXT,
+      createdAt INTEGER
+    );
+
+    CREATE TABLE IF NOT EXISTS inventory_parent_skus (
+      parentId INTEGER PRIMARY KEY AUTOINCREMENT,
+      clientId INTEGER,
+      name TEXT,
+      createdAt INTEGER,
+      updatedAt INTEGER
+    );
+
+    CREATE TABLE IF NOT EXISTS inventory_sku_parents (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      invSkuId INTEGER,
+      parentId INTEGER
+    );
+
+    CREATE TABLE IF NOT EXISTS product_defaults (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      sku TEXT,
+      productId INTEGER,
+      serviceCode TEXT,
+      packageCode TEXT,
+      shippingProviderId INTEGER,
+      weightOz REAL,
+      length REAL, width REAL, height REAL,
+      updatedAt INTEGER
+    );
+
+    CREATE TABLE IF NOT EXISTS inventory (
+      invSkuId INTEGER PRIMARY KEY AUTOINCREMENT,
+      clientId INTEGER,
+      sku TEXT,
+      name TEXT,
+      stockQty INTEGER DEFAULT 0,
+      reorderLevel INTEGER DEFAULT 0,
+      imageUrl TEXT,
+      weight_oz REAL,
+      length REAL, width REAL, height REAL,
+      active INTEGER DEFAULT 1,
+      createdAt INTEGER,
+      updatedAt INTEGER
+    );
+
+    CREATE TABLE IF NOT EXISTS order_shipments_return (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      shipmentId INTEGER,
+      returnShipmentId INTEGER,
+      returnTrackingNumber TEXT,
+      reason TEXT,
+      createdAt INTEGER
+    );
+
+    CREATE TABLE IF NOT EXISTS manifests (
+      manifestId INTEGER PRIMARY KEY AUTOINCREMENT,
+      carrierCode TEXT,
+      createDate TEXT,
+      shipmentIds TEXT,
+      manifestUrl TEXT,
+      createdAt INTEGER,
+      updatedAt INTEGER
+    );
+
     CREATE TABLE IF NOT EXISTS print_queue_orders (
       id TEXT PRIMARY KEY,
       client_id INTEGER NOT NULL, order_id TEXT NOT NULL,
