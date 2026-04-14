@@ -1,5 +1,6 @@
 import { useContext, useEffect, useMemo, useRef, useState } from 'react'
 import { apiClient } from '../../api/client'
+import { API_BASE_URL, authHeaders } from '../../api/config'
 import { ToastContext } from '../../contexts/ToastContext'
 import { useLocations, useOrderDetail, useOrders, useShippingAccounts } from '../../hooks'
 import { useMarkups } from '../../contexts/MarkupsContext'
@@ -1425,9 +1426,9 @@ export default function OrdersView({
       const length = dims.length || payload.dims?.length || getDimensions(panelOrder, panelDetail)?.length || 0
       const width = dims.width || payload.dims?.width || getDimensions(panelOrder, panelDetail)?.width || 0
       const height = dims.height || payload.dims?.height || getDimensions(panelOrder, panelDetail)?.height || 0
-      const liveRates = await fetch('/api/rates', {
+      const liveRates = await fetch(`${API_BASE_URL}/rates`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: authHeaders({ 'Content-Type': 'application/json' }),
         body: JSON.stringify({
           toPostalCode: getShipTo(panelOrder, panelDetail).postalCode ?? '',
           toCountry: getShipTo(panelOrder, panelDetail).country ?? 'US',

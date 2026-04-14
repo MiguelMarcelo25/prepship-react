@@ -5,9 +5,10 @@
 
 import React, { createContext, useState, useEffect, useCallback, useRef } from 'react';
 import type { MarkupsMap, Markup, MarkupType } from '../types/markups';
+import { API_BASE_URL, authHeaders } from '../api/config';
 
 const MARKUP_STORAGE_KEY = 'prepship_rb_markups';
-const API_BASE = '/api';
+const API_BASE = API_BASE_URL;
 
 export interface MarkupsContextValue {
   // State
@@ -43,7 +44,7 @@ export function MarkupsProvider({ children }: { children: React.ReactNode }) {
   async function loadMarkups() {
     setLoading(true);
     try {
-      const res = await fetch(`${API_BASE}/settings/rbMarkups`);
+      const res = await fetch(`${API_BASE}/settings/rbMarkups`, { headers: authHeaders() });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data: MarkupsMap = await res.json();
       setMarkups(data || {});
@@ -77,7 +78,7 @@ export function MarkupsProvider({ children }: { children: React.ReactNode }) {
   const clearRateCache = useCallback(async () => {
     const res = await fetch(`${API_BASE}/cache/clear-and-refetch`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: authHeaders({ 'Content-Type': 'application/json' }),
       body: JSON.stringify({ scope: 'all' }),
     });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -98,7 +99,7 @@ export function MarkupsProvider({ children }: { children: React.ReactNode }) {
       try {
         const res = await fetch(`${API_BASE}/settings/rbMarkups`, {
           method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
+          headers: authHeaders({ 'Content-Type': 'application/json' }),
           body: JSON.stringify(updated),
         });
         if (!res.ok) throw new Error(`HTTP ${res.status}`);

@@ -115,8 +115,9 @@ class ApiClient {
     // In production: VITE_API_BASE_URL points at the deployed API (e.g.
     //   https://prepship-api.onrender.com/api).
     // In dev: Vite proxies /api/* to the local API server, so "/api" works.
+    // Use || (not ??) so empty-string env values fall through to the default.
     const envBaseUrl = (import.meta.env.VITE_API_BASE_URL as string | undefined)?.replace(/\/$/, "");
-    this.baseUrl = baseUrl ?? envBaseUrl ?? "/api";
+    this.baseUrl = baseUrl || envBaseUrl || "/api";
     this.loadToken();
   }
 

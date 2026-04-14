@@ -1,4 +1,5 @@
 import { useState, useCallback } from "react";
+import { API_BASE_URL, authHeaders } from "../api/config";
 
 export interface RateDims {
   length: number;
@@ -78,9 +79,9 @@ export function useRates(): UseRatesResult {
           };
         }
 
-        const response = await fetch("/api/rates", {
+        const response = await fetch(`${API_BASE_URL}/rates`, {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: authHeaders({ "Content-Type": "application/json" }),
           body: JSON.stringify(payload),
         });
 
