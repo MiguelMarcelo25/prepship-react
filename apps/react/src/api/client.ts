@@ -111,17 +111,29 @@ class ApiClient {
   private baseUrl: string;
   private appToken: string | null = null;
 
-  constructor(baseUrl: string = "/api") {
-    this.baseUrl = baseUrl;
+  constructor(baseUrl?: string) {
+    // In production: VITE_API_BASE_URL points at the deployed API (e.g.
+    //   https://prepship-api.onrender.com/api).
+    // In dev: Vite proxies /api/* to the local API server, so "/api" works.
+    const envBaseUrl = (import.meta.env.VITE_API_BASE_URL as string | undefined)?.replace(/\/$/, "");
+    this.baseUrl = baseUrl ?? envBaseUrl ?? "/api";
     this.loadToken();
   }
 
   /**
-   * Load app token from localStorage
+   * Load app token from localStorage; fall back to the build-time
+   * VITE_SESSION_TOKEN baked into the bundle so production deploys can
+   * authenticate without the user manually setting one.
    */
   private loadToken() {
     if (typeof window !== "undefined") {
       this.appToken = localStorage.getItem("app-token");
+    }
+    if (!this.appToken) {
+      const buildToken = import.meta.env.VITE_SESSION_TOKEN as string | undefined;
+      if (buildToken) {
+        this.appToken = buildToken;
+      }
     }
   }
 
