@@ -128,6 +128,7 @@ export async function bootstrapApi(env = process.env, overrides: BootstrapApiOve
 
   return {
     config,
+    dataStore,
     // CORS wraps auth: preflight requests must succeed before auth checks the token.
     app: createCorsMiddleware(
       createAuthMiddleware(rawApp, config.sessionToken),
