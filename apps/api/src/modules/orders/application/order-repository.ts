@@ -32,4 +32,7 @@ export interface OrderRepository {
   getDailyStats(): Promise<OrdersDailyStatsDto>;
   exportOrders(query: OrderExportQuery): Promise<OrderExportRow[]>;
   getStoreCounts(orderStatus: string, dateStart?: string, dateEnd?: string): Promise<Array<{ storeId: number | null; count: number }>>;
+  upsertOrder(order: Partial<OrderRecord>): Promise<void>;
+  markStatus(orderId: number, status: string): Promise<void>;
+  getByOrderNumber(orderNumber: string): Promise<OrderRecord | null>;
 }

@@ -1,9 +1,7 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
-import { DatabaseSync } from "node:sqlite";
 import { bootstrapApi } from "./app/bootstrap.ts";
 import { startHttpServer } from "./app/server.ts";
-import { OrderStatusSyncWorker } from "./modules/sync/order-status-sync.ts";
 
 // Load .env file if it exists (from project root).
 // IMPORTANT: plist/environment values win — .env only fills in MISSING vars.
@@ -34,19 +32,10 @@ startHttpServer(app, config.port).then(() => {
   console.log(`PrepshipV2 API listening on http://127.0.0.1:${config.port}`);
   console.log(`[Note] Authentication delegated to Cloudflare Access`);
 
-  // Start order status sync worker if enabled
+  // Order status sync is now managed by apps/worker.
   if (config.workerSyncEnabled) {
-    const apiKey = config.secrets.shipstation?.api_key ?? "";
-    const apiSecret = config.secrets.shipstation?.api_secret ?? "";
-    if (apiKey && apiSecret) {
-      const db = new DatabaseSync(config.sqliteDbPath as string);
-      const syncWorker = new OrderStatusSyncWorker(db, apiKey, apiSecret);
-      syncWorker.start();
-      console.log("[sync] Order status sync worker enabled");
-    } else {
-      console.warn("[sync] WORKER_SYNC_ENABLED=true but ShipStation credentials missing");
-    }
+    console.log("[sync] Order status sync enabled (managed by apps/worker process)");
   } else {
-    console.log("[sync] Order status sync disabled (WORKER_SYNC_ENABLED=false)");
+    console.log("[sync] Order status sync disabled");
   }
 });

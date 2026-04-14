@@ -554,6 +554,46 @@ export class PgOrderRepository implements OrderRepository {
     return rows.map((r) => ({ storeId: r.storeid == null ? null : Number(r.storeid), count: Number(r.count) }));
   }
 
+  async upsertOrder(order: Partial<OrderRecord>): Promise<void> {
+    const now = Date.now();
+    const sql = `
+      INSERT INTO orders (
+        orderid, ordernumber, orderstatus, orderdate, storeid, customeremail,
+        shiptoname, shiptocity, shiptostate, shiptopostalcode, carriercode, servicecode,
+        weightvalue, ordertotal, shippingamount, items, raw, updatedat, clientid
+      ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19)
+      ON CONFLICT(orderid) DO UPDATE SET
+        orderstatus = EXCLUDED.orderstatus,
+        updatedat = EXCLUDED.updatedat
+    `;
+    await this.pool.query(sql, [
+      order.orderId, order.orderNumber, order.orderStatus, order.orderDate, order.storeId,
+      order.customerEmail ?? null, order.shipToName ?? null, order.shipToCity ?? null,
+      order.shipToState ?? null, order.shipToPostalCode ?? null,
+      order.carrierCode ?? null, order.serviceCode ?? null, order.weightValue ?? null,
+      order.orderTotal ?? 0, order.shippingAmount ?? 0,
+      order.items ?? "[]", order.raw ?? "{}", now, order.clientId,
+    ]);
+  }
+
+  async markStatus(orderId: number, status: string): Promise<void> {
+    const now = Date.now();
+    await this.pool.query("UPDATE orders SET orderstatus = $1, updatedat = $2 WHERE orderid = $3", [status, now, orderId]);
+  }
+
+  async getByOrderNumber(orderNumber: string): Promise<OrderRecord | null> {
+    const { rows } = await this.pool.query(
+      `SELECT o.*, c.name AS clientname
+       FROM orders o
+       LEFT JOIN clients c ON c.clientid = o.clientid
+       WHERE o.ordernumber = $1
+       LIMIT 1`,
+      [orderNumber],
+    );
+    if (rows.length === 0) return null;
+    return this.mapRow(rows[0]!);
+  }
+
   private mapRow(row: Record<string, unknown>): OrderRecord {
     return {
       orderId: Number(row.orderid),

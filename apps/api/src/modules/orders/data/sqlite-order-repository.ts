@@ -524,6 +524,47 @@ export class SqliteOrderRepository implements OrderRepository {
     return rows.map((r) => ({ storeId: r.storeId == null ? null : Number(r.storeId), count: Number(r.count) }));
   }
 
+  async upsertOrder(order: Partial<OrderRecord>): Promise<void> {
+    const now = Date.now();
+    this.db.prepare(`
+      INSERT INTO orders (
+        orderId, orderNumber, orderStatus, orderDate, storeId, customerEmail,
+        shipToName, shipToCity, shipToState, shipToPostalCode, carrierCode, serviceCode,
+        weightValue, orderTotal, shippingAmount, items, raw, updatedAt, clientId
+      ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+      ON CONFLICT(orderId) DO UPDATE SET
+        orderStatus = excluded.orderStatus,
+        updatedAt = excluded.updatedAt
+    `).run(
+      order.orderId, order.orderNumber, order.orderStatus, order.orderDate, order.storeId,
+      order.customerEmail ?? null, order.shipToName ?? null, order.shipToCity ?? null,
+      order.shipToState ?? null, order.shipToPostalCode ?? null,
+      order.carrierCode ?? null, order.serviceCode ?? null, order.weightValue ?? null,
+      order.orderTotal ?? 0, order.shippingAmount ?? 0,
+      order.items ?? "[]", order.raw ?? "{}", now, order.clientId,
+    );
+  }
+
+  async markStatus(orderId: number, status: string): Promise<void> {
+    const now = Date.now();
+    this.db.prepare("UPDATE orders SET orderStatus = ?, updatedAt = ? WHERE orderId = ?").run(status, now, orderId);
+  }
+
+  async getByOrderNumber(orderNumber: string): Promise<OrderRecord | null> {
+    const statement = this.db.prepare(`
+      SELECT o.*, c.name AS clientName
+      FROM orders o
+      LEFT JOIN clients c ON c.clientId = o.clientId
+      WHERE o.orderNumber = ?
+      LIMIT 1
+    `);
+    const row = statement.get(orderNumber) as Record<string, unknown> | undefined;
+    if (!row) return null;
+    
+    // Minimal mapping needed for sync worker
+    return this.mapRow(row);
+  }
+
   private hasTable(name: string): boolean {
     const row = this.db.prepare(`
       SELECT name FROM sqlite_master WHERE type = 'table' AND name = ?

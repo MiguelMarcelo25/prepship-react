@@ -1,5 +1,6 @@
-import { loadWorkerConfig } from "./config/worker-config.ts";
+import { bootstrapWorker } from "./app/bootstrap.ts";
 import { runWorker } from "./app/run-worker.ts";
 
-runWorker(loadWorkerConfig());
+const boot = await bootstrapWorker();
+await runWorker(boot);
 
