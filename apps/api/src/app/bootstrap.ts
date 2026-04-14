@@ -1,5 +1,6 @@
 import { createApp } from "./create-app.ts";
 import { createAuthMiddleware } from "./auth-middleware.ts";
+import { createCorsMiddleware } from "./cors-middleware.ts";
 import { loadAppConfig } from "../config/app-config.ts";
 import { CARRIER_ACCOUNTS_V2, EXCLUDED_STORE_IDS } from "../common/prepship-config.ts";
 import type { ApiDataStore } from "./datastore.ts";
@@ -124,6 +125,10 @@ export async function bootstrapApi(env = process.env, overrides: BootstrapApiOve
 
   return {
     config,
-    app: createAuthMiddleware(rawApp, config.sessionToken),
+    // CORS wraps auth: preflight requests must succeed before auth checks the token.
+    app: createCorsMiddleware(
+      createAuthMiddleware(rawApp, config.sessionToken),
+      env.ALLOWED_ORIGINS,
+    ),
   };
 }

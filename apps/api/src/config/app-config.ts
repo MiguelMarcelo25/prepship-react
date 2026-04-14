@@ -20,14 +20,13 @@ function parseBooleanFlag(value: string | undefined, fallback: boolean): boolean
 
 export function loadAppConfig(env = process.env): AppConfig {
   const dbProvider = (env.DB_PROVIDER ?? "sqlite") as DbProvider;
-  const sqliteDbPath = env.SQLITE_DB_PATH;
   const postgresUrl = env.DATABASE_URL;
 
   if (dbProvider !== "sqlite" && dbProvider !== "postgres" && dbProvider !== "memory") {
     throw new Error(`Unsupported DB_PROVIDER: ${dbProvider}`);
   }
 
-  if (dbProvider === "sqlite" && !sqliteDbPath) {
+  if (dbProvider === "sqlite" && !env.SQLITE_DB_PATH) {
     throw new Error("SQLITE_DB_PATH is required when DB_PROVIDER=sqlite");
   }
 
@@ -35,10 +34,10 @@ export function loadAppConfig(env = process.env): AppConfig {
     throw new Error("DATABASE_URL is required when DB_PROVIDER=postgres");
   }
 
-  // Postgres phase 1 also opens sqlite for not-yet-ported modules as a fallback.
-  if (dbProvider === "postgres" && !sqliteDbPath) {
-    throw new Error("SQLITE_DB_PATH is still required during postgres phase 1 (fallback for unported modules)");
-  }
+  // In postgres mode, sqlite is only used as a fallback for unported modules.
+  // Default to an in-memory sqlite db so deployments without a writable disk
+  // (Render, serverless) still boot. Unported endpoints will return empty data.
+  const sqliteDbPath = env.SQLITE_DB_PATH ?? (dbProvider === "postgres" ? ":memory:" : undefined);
 
   const secretsPath = env.PREPSHIP_SECRETS_PATH ?? defaultSecretsPath(env);
 
@@ -54,7 +53,8 @@ export function loadAppConfig(env = process.env): AppConfig {
   const fallbackToken = sessionToken ?? "dev-only-insecure-token-change-me";
 
   return {
-    port: Number.parseInt(env.API_PORT ?? "4010", 10),
+    // Render/Heroku-style platforms set PORT; fall back to API_PORT for local dev.
+    port: Number.parseInt(env.PORT ?? env.API_PORT ?? "4010", 10),
     dbProvider,
     sqliteDbPath: sqliteDbPath ?? null,
     postgresUrl: postgresUrl ?? null,

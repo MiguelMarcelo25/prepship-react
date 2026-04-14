@@ -3,6 +3,9 @@
   "private": true,
   "version": "0.1.0",
   "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
   "workspaces": [
     "apps/*",
     "packages/*"
@@ -12,6 +15,7 @@
     "dev:react": "npm run dev --workspace apps/react",
     "dev:web": "node --experimental-strip-types apps/web/src/main.ts",
     "dev:worker": "node --experimental-strip-types apps/worker/src/main.ts",
+    "start:api": "node --experimental-strip-types apps/api/src/main.ts",
     "build:react": "npm run build --workspace apps/react",
     "test": "node --experimental-strip-types --test apps/api/test/*.test.ts apps/web/test/*.test.ts apps/react/test/*.test.ts"
   },
