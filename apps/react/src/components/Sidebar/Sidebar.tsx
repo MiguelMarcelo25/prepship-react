@@ -154,15 +154,15 @@ export default function Sidebar({
       </div>
 
       {/* Status sections + tools */}
-      <nav className="flex-1 overflow-y-auto modern-scroll px-2 pb-3">
-        <div className="mt-2 px-2 pb-1 text-[10px] font-semibold uppercase tracking-wider text-[var(--color-text-muted)]">
+      <nav className="flex-1 overflow-y-auto modern-scroll px-3 pt-4 pb-4">
+        <div className="px-2 pb-2 text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--color-text-muted)]">
           Orders
         </div>
         {SIDEBAR_STATUSES.map((status) => {
           const isActive = currentView === 'orders' && currentStatus === status && activeStore == null
           const isExpanded = expandedSections.has(status)
           return (
-            <div key={status} className="mb-0.5">
+            <div key={status} className="mb-1.5">
               <button
                 type="button"
                 onClick={() => {
@@ -171,7 +171,7 @@ export default function Sidebar({
                   onCloseMobileMenu?.()
                 }}
                 className={[
-                  'group w-full flex items-center gap-2 px-3 py-2 rounded-lg',
+                  'group w-full flex items-center gap-2.5 px-3 py-2.5 rounded-lg',
                   'text-left transition',
                   isActive
                     ? 'bg-indigo-50 text-indigo-700 dark:bg-indigo-500/10 dark:text-indigo-300'
@@ -214,7 +214,7 @@ export default function Sidebar({
               </button>
 
               {isExpanded && (
-                <div className="mt-0.5 ml-5 pl-3 border-l border-[var(--color-border-default)] flex flex-col">
+                <div className="mt-1 ml-5 pl-3 border-l border-[var(--color-border-default)] flex flex-col gap-0.5">
                   {sidebarSections[status].stores.map((store) => {
                     const storeActive = currentView === 'orders' && activeStore === store.storeId && currentStatus === status
                     const isZero = store.cnt === 0
@@ -228,7 +228,7 @@ export default function Sidebar({
                           onCloseMobileMenu?.()
                         }}
                         className={[
-                          'w-full flex items-center gap-2 pl-2 pr-2 py-1.5 rounded-md text-left',
+                          'w-full flex items-center gap-2 pl-3 pr-2 py-2 rounded-md text-left',
                           'text-[12px] transition',
                           storeActive
                             ? 'bg-indigo-50 text-indigo-700 dark:bg-indigo-500/10 dark:text-indigo-300 font-medium'
@@ -251,12 +251,12 @@ export default function Sidebar({
           )
         })}
 
-        <div className="mx-3 my-3 h-px bg-[var(--color-border-default)]" />
+        <div className="mx-2 my-5 h-px bg-[var(--color-border-default)]" />
 
-        <div className="px-2 pb-1 text-[10px] font-semibold uppercase tracking-wider text-[var(--color-text-muted)]">
+        <div className="px-2 pb-2 text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--color-text-muted)]">
           Tools
         </div>
-        <div className="flex flex-col gap-0.5">
+        <div className="flex flex-col gap-1">
           {TOOL_ITEMS.map((tool) => {
             const isActive = currentView === tool.view
             return (
@@ -268,13 +268,13 @@ export default function Sidebar({
                   onCloseMobileMenu?.()
                 }}
                 className={[
-                  'flex items-center gap-2.5 px-3 py-2 rounded-lg text-left transition',
+                  'flex items-center gap-3 px-3 py-2.5 rounded-lg text-left transition',
                   isActive
                     ? 'bg-indigo-50 text-indigo-700 dark:bg-indigo-500/10 dark:text-indigo-300 font-medium'
                     : 'text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-muted)] hover:text-[var(--color-text-primary)]',
                 ].join(' ')}
               >
-                <span className="text-[15px] leading-none">{tool.icon}</span>
+                <span className="text-[16px] leading-none w-5 grid place-items-center">{tool.icon}</span>
                 <span className="text-[13px]">{tool.label}</span>
               </button>
             )
