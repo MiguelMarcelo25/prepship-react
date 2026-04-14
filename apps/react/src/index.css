@@ -59,8 +59,14 @@
 }
 
 /* Dark mode: activated by adding .dark class to <html> element.
-   Palette is a refined slate theme, not pure black. */
+   Palette is a refined slate theme, not pure black.
+
+   We override BOTH the new Tailwind @theme tokens AND the legacy
+   app.css tokens (--bg, --surface, --text, etc.) so the entire UI —
+   modern sidebar AND legacy views (OrdersView, topbar, order panel) —
+   responds to the dark mode toggle uniformly. */
 .dark {
+  /* Modern (Tailwind @theme) tokens */
   --color-bg-base: #0b1220;
   --color-bg-surface: #111827;
   --color-bg-muted: #1f2937;
@@ -77,6 +83,233 @@
   --color-success-bg: #022c22;
   --color-warning-bg: #451a03;
   --color-danger-bg: #450a0a;
+
+  /* Legacy (apps/web/public/css/app.css) tokens — keep the names stable,
+     swap the values. Every legacy view styled via .topbar, .order-row,
+     .panel-*, .batch-*, etc. inherits the new palette automatically. */
+  --bg: #0b1220;
+  --surface: #111827;
+  --surface2: #1a2435;
+  --surface3: #1f2937;
+  --border: #1f2937;
+  --border2: #374151;
+  --text: #f1f5f9;
+  --text2: #cbd5e1;
+  --text3: #94a3b8;
+  --text4: #64748b;
+
+  --ss-blue: #6366f1;
+  --ss-blue2: #4f46e5;
+  --ss-blue-bg: rgb(99 102 241 / 0.12);
+  --ss-blue-border: rgb(99 102 241 / 0.35);
+
+  --green: #10b981;
+  --green2: #059669;
+  --green-bg: rgb(16 185 129 / 0.12);
+  --green-border: rgb(16 185 129 / 0.35);
+  --green-dark: #34d399;
+
+  --yellow: #f59e0b;
+  --yellow-bg: rgb(245 158 11 / 0.12);
+
+  --red: #f87171;
+  --red-bg: rgb(248 113 113 / 0.12);
+
+  --orange: #fb923c;
+  --orange-bg: rgb(251 146 60 / 0.12);
+
+  --shadow: 0 1px 3px rgb(0 0 0 / 0.4), 0 1px 2px rgb(0 0 0 / 0.3);
+  --shadow-md: 0 4px 8px rgb(0 0 0 / 0.5), 0 2px 4px rgb(0 0 0 / 0.3);
+  --shadow-lg: 0 8px 24px rgb(0 0 0 / 0.6), 0 2px 8px rgb(0 0 0 / 0.4);
+}
+
+/* Force the html/body background to respect the theme so the area
+   outside .main also switches in dark mode. */
+html,
+body {
+  background: var(--bg);
+  color: var(--text);
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+/* ══════════════════════════════════════════════
+   MODERN OVERRIDES — apply on top of the legacy CSS in
+   apps/web/public/css/app.css. Same class names, updated look.
+   These rules modernize the shared button/pill/topbar/order-row
+   styling across every view at once without touching any JSX.
+════════════════════════════════════════════════ */
+
+/* Topbar: larger padding, softer shadow, subtle backdrop blur */
+.topbar {
+  padding: 12px 20px !important;
+  border-bottom: 1px solid var(--border) !important;
+  box-shadow: 0 1px 3px rgb(0 0 0 / 0.04) !important;
+  gap: 10px !important;
+  min-height: 56px;
+}
+.topbar-title {
+  font-size: 15px !important;
+  font-weight: 600 !important;
+  letter-spacing: -0.01em;
+}
+
+/* Buttons — unify rounded-lg + hover lift + focus ring */
+.btn {
+  border-radius: 8px !important;
+  font-weight: 500 !important;
+  transition: all 0.15s ease !important;
+  border: 1px solid transparent;
+  letter-spacing: -0.005em;
+}
+.btn:focus-visible {
+  outline: 2px solid rgb(99 102 241 / 0.5);
+  outline-offset: 2px;
+}
+.btn-sm {
+  font-size: 12px !important;
+  padding: 6px 12px !important;
+  height: 32px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.btn-primary {
+  background: #4f46e5 !important;
+  color: #fff !important;
+  border-color: #4f46e5 !important;
+  box-shadow: 0 1px 2px rgb(79 70 229 / 0.2);
+}
+.btn-primary:hover {
+  background: #4338ca !important;
+  border-color: #4338ca !important;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 8px rgb(79 70 229 / 0.25);
+}
+.btn-outline {
+  background: var(--surface) !important;
+  color: var(--text) !important;
+  border-color: var(--border2) !important;
+}
+.btn-outline:hover {
+  background: var(--surface2) !important;
+  border-color: var(--ss-blue) !important;
+  color: var(--ss-blue) !important;
+}
+.btn-ghost {
+  background: transparent !important;
+  color: var(--text2) !important;
+}
+.btn-ghost:hover {
+  background: var(--surface2) !important;
+  color: var(--text) !important;
+}
+
+/* Batch bar — rounded pill shape */
+.batch-bar {
+  border-radius: 10px !important;
+  padding: 6px 10px 6px 14px !important;
+  background: rgb(99 102 241 / 0.08) !important;
+  border: 1px solid rgb(99 102 241 / 0.2) !important;
+  gap: 10px !important;
+}
+.batch-bar #batchCount {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--ss-blue);
+}
+.batch-btn {
+  border-radius: 6px !important;
+  font-size: 11px !important;
+  font-weight: 500 !important;
+}
+
+/* Sync pill — cleaner shape */
+.sync-pill {
+  border-radius: 999px !important;
+  padding: 4px 10px 4px 8px !important;
+  font-size: 11px !important;
+  font-weight: 500 !important;
+  gap: 6px !important;
+  background: var(--surface2) !important;
+  border: 1px solid var(--border) !important;
+}
+.sync-pill .sync-dot {
+  width: 6px !important;
+  height: 6px !important;
+  border-radius: 999px !important;
+}
+
+/* Order rows — slightly taller with proper spacing */
+.order-row,
+.orders-row,
+.orders-tbody tr,
+.orders-body .row {
+  transition: background-color 0.1s ease;
+}
+.order-row:hover,
+.orders-row:hover,
+.orders-tbody tr:hover,
+.orders-body .row:hover {
+  background: var(--surface2) !important;
+}
+.order-row.selected,
+.orders-row.selected,
+.orders-tbody tr.selected,
+.orders-body .row.selected {
+  background: rgb(99 102 241 / 0.08) !important;
+}
+
+/* Zoom menu dropdown — polished shape */
+.zoom-opt {
+  padding: 7px 14px !important;
+  font-size: 12px !important;
+  color: var(--text) !important;
+  cursor: pointer;
+  transition: background-color 0.1s ease;
+}
+.zoom-opt:hover {
+  background: var(--surface2) !important;
+}
+.zoom-opt.active {
+  background: rgb(99 102 241 / 0.1) !important;
+  color: var(--ss-blue) !important;
+  font-weight: 600;
+}
+
+/* Cleaner scrollbars throughout the app */
+*::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+*::-webkit-scrollbar-thumb {
+  background: var(--border2);
+  border-radius: 999px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+*::-webkit-scrollbar-thumb:hover {
+  background: var(--text3);
+  background-clip: padding-box;
+}
+
+/* Better focus visibility for keyboard users across all inputs */
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible,
+button:focus-visible {
+  outline: 2px solid rgb(99 102 241 / 0.5);
+  outline-offset: 1px;
+}
+
+/* Panel (order detail right side) — softer border */
+.panel,
+.order-panel,
+.detail-panel {
+  border-left: 1px solid var(--border) !important;
+  background: var(--surface) !important;
 }
 
 /* ══════════════════════════════════════════════
