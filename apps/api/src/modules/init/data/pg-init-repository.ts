@@ -20,7 +20,7 @@ export class PgInitRepository implements InitRepository {
     const { rows } = await this.pool.query(`
       SELECT DISTINCT name, storeids
       FROM clients
-      WHERE active = 1
+      WHERE active = TRUE
     `);
 
     const stores: InitStoreDto[] = [];
