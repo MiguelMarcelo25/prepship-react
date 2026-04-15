@@ -36,7 +36,7 @@ export function createInventoryRoutes(handler: InventoryHttpHandler): RouteDef[]
         const clientId = parseOptionalIntegerParam(url.searchParams.get("clientId"), "clientId") ?? 0;
         return handler.handleAlerts(clientId);
       },
-      { getErrorStatus: inputErrorStatusWithMessages(["clientId required"]) },
+      { getErrorStatus: inputErrorStatus },
     ),
     jsonRoute("POST", "/api/inventory/populate", () => handler.handlePopulate()),
     jsonRoute("POST", "/api/inventory/import-dims", ({ url }) => handler.handleImportDimensions(url), {

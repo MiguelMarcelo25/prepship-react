@@ -346,7 +346,7 @@ export default function InventoryView({ searchQuery = '' }: InventoryViewProps) 
         const [nextClients, nextPackages, nextAlerts] = await Promise.all([
           apiClient.fetchClients(),
           apiClient.fetchPackages('custom'),
-          apiClient.fetchInventoryAlerts(),
+          apiClient.fetchInventoryAlerts(stockClientId ? Number.parseInt(stockClientId, 10) : undefined),
         ])
         if (!active) return
         setClients(nextClients)

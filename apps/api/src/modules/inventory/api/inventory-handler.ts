@@ -17,48 +17,48 @@ export class InventoryHttpHandler {
     this.services = services;
   }
 
-  handleList(url: URL) {
+  async handleList(url: URL) {
     return this.services.list(parseListInventoryQuery(url));
   }
 
-  handleReceive(body: ReceiveInventoryInput) {
+  async handleReceive(body: ReceiveInventoryInput) {
     return this.services.receive(body);
   }
 
-  handleAdjust(body: AdjustInventoryInput) {
+  async handleAdjust(body: AdjustInventoryInput) {
     return this.services.adjust(body);
   }
 
-  handleUpdate(inventoryId: number, body: UpdateInventoryItemInput) {
+  async handleUpdate(inventoryId: number, body: UpdateInventoryItemInput) {
     return this.services.update(inventoryId, body);
   }
 
-  handleLedger(url: URL) {
+  async handleLedger(url: URL) {
     return this.services.listLedger(parseListInventoryLedgerQuery(url));
   }
 
-  handleInventoryLedger(inventoryId: number) {
+  async handleInventoryLedger(inventoryId: number) {
     return this.services.getLedger(inventoryId);
   }
 
-  handleAlerts(clientId: number) {
+  async handleAlerts(clientId: number) {
     return this.services.listAlerts(clientId);
   }
 
-  handlePopulate() {
+  async handlePopulate() {
     return this.services.populate();
   }
 
-  handleImportDimensions(url: URL) {
+  async handleImportDimensions(url: URL) {
     const clientId = parseOptionalIntegerParam(url.searchParams.get("clientId"), "clientId");
     return this.services.importProductDimensions(clientId, url.searchParams.get("overwrite") === "1");
   }
 
-  handleBulkUpdateDimensions(body: BulkUpdateInventoryDimensionsInput) {
+  async handleBulkUpdateDimensions(body: BulkUpdateInventoryDimensionsInput) {
     return this.services.bulkUpdateDimensions(body);
   }
 
-  handleListParentSkus(url: URL) {
+  async handleListParentSkus(url: URL) {
     const rawId = url.searchParams.get("id");
     if (rawId) {
       const parentSkuId = parseOptionalIntegerParam(rawId, "id");
@@ -71,19 +71,19 @@ export class InventoryHttpHandler {
     return this.services.listParentSkus(clientId ?? 0);
   }
 
-  handleCreateParentSku(body: SaveParentSkuInput) {
+  async handleCreateParentSku(body: SaveParentSkuInput) {
     return this.services.createParentSku(body);
   }
 
-  handleSetParent(inventoryId: number, body: SetInventoryParentInput) {
+  async handleSetParent(inventoryId: number, body: SetInventoryParentInput) {
     return this.services.setParent(inventoryId, body);
   }
 
-  handleDeleteParent(parentSkuId: number) {
+  async handleDeleteParent(parentSkuId: number) {
     return this.services.deleteParent(parentSkuId);
   }
 
-  handleSkuOrders(inventoryId: number, url: URL) {
+  async handleSkuOrders(inventoryId: number, url: URL) {
     const days = parseOptionalIntegerParam(url.searchParams.get("days"), "days");
     return this.services.getSkuOrders(inventoryId, days);
   }

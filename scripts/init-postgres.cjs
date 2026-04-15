@@ -182,6 +182,109 @@ if (!connectionString) {
   `);
   console.log('✓ all phase-1 tables ready');
 
+  // ─── Phase 2: inventory module tables ──────────────────────────────────
+  await client.query(`
+    CREATE TABLE IF NOT EXISTS packages (
+      packageid SERIAL PRIMARY KEY,
+      packagecode TEXT,
+      name TEXT NOT NULL,
+      type TEXT DEFAULT 'box',
+      length REAL DEFAULT 0,
+      width REAL DEFAULT 0,
+      height REAL DEFAULT 0,
+      tareweightoz REAL DEFAULT 0,
+      source TEXT DEFAULT 'custom',
+      carriercode TEXT,
+      service_codes TEXT,
+      active BOOLEAN DEFAULT TRUE,
+      isdefault BOOLEAN DEFAULT FALSE,
+      stockqty INTEGER DEFAULT 0,
+      reorderlevel INTEGER DEFAULT 0,
+      unitcost REAL,
+      createdat BIGINT,
+      updatedat BIGINT
+    );
+
+    CREATE TABLE IF NOT EXISTS products (
+      productid SERIAL PRIMARY KEY,
+      sku TEXT UNIQUE,
+      name TEXT,
+      imageurl TEXT,
+      weightoz REAL DEFAULT 0,
+      length REAL DEFAULT 0,
+      width REAL DEFAULT 0,
+      height REAL DEFAULT 0,
+      defaultpackagecode TEXT,
+      modifydate BIGINT,
+      updatedat BIGINT,
+      createdat BIGINT
+    );
+
+    CREATE TABLE IF NOT EXISTS parent_skus (
+      parentskuid SERIAL PRIMARY KEY,
+      clientid INTEGER NOT NULL,
+      name TEXT NOT NULL,
+      sku TEXT,
+      baseunitqty INTEGER DEFAULT 1,
+      createdat BIGINT,
+      updatedat BIGINT
+    );
+
+    CREATE TABLE IF NOT EXISTS inventory_skus (
+      id SERIAL PRIMARY KEY,
+      clientid INTEGER NOT NULL,
+      sku TEXT NOT NULL,
+      name TEXT DEFAULT '',
+      minstock INTEGER DEFAULT 0,
+      active BOOLEAN DEFAULT TRUE,
+      weightoz REAL DEFAULT 0,
+      parentskuid INTEGER,
+      baseunitqty INTEGER DEFAULT 1,
+      length REAL DEFAULT 0,
+      width REAL DEFAULT 0,
+      height REAL DEFAULT 0,
+      productlength REAL DEFAULT 0,
+      productwidth REAL DEFAULT 0,
+      productheight REAL DEFAULT 0,
+      packageid INTEGER,
+      units_per_pack INTEGER DEFAULT 1,
+      cuftoverride REAL,
+      createdat BIGINT,
+      updatedat BIGINT
+    );
+
+    CREATE INDEX IF NOT EXISTS inventory_skus_client_idx ON inventory_skus(clientid);
+    CREATE INDEX IF NOT EXISTS inventory_skus_sku_idx ON inventory_skus(sku);
+    CREATE UNIQUE INDEX IF NOT EXISTS inventory_skus_client_sku_idx ON inventory_skus(clientid, sku);
+
+    CREATE TABLE IF NOT EXISTS inventory_ledger (
+      id SERIAL PRIMARY KEY,
+      invskuid INTEGER NOT NULL,
+      type TEXT,
+      qty INTEGER,
+      delta INTEGER,
+      orderid BIGINT,
+      note TEXT,
+      createdby TEXT,
+      createdat BIGINT
+    );
+
+    CREATE INDEX IF NOT EXISTS inventory_ledger_invsku_idx ON inventory_ledger(invskuid);
+
+    CREATE TABLE IF NOT EXISTS package_ledger (
+      id SERIAL PRIMARY KEY,
+      packageid INTEGER NOT NULL,
+      delta INTEGER NOT NULL,
+      reason TEXT,
+      note TEXT,
+      unitcost REAL,
+      createdat BIGINT
+    );
+
+    CREATE INDEX IF NOT EXISTS package_ledger_package_idx ON package_ledger(packageid);
+  `);
+  console.log('✓ phase-2 inventory tables ready');
+
   // Seed a default location if none exists
   const { rows: existing } = await client.query('SELECT COUNT(*)::int AS n FROM locations');
   if (existing[0].n === 0) {

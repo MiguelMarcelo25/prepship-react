@@ -12,55 +12,55 @@ export class PackagesHttpHandler {
     this.services = services;
   }
 
-  handleList(source?: string) {
+  async handleList(source?: string) {
     return this.services.list(source);
   }
 
-  handleCreate(body: SavePackageInput) {
+  async handleCreate(body: SavePackageInput) {
     return this.services.create(body);
   }
 
-  handleLowStock() {
+  async handleLowStock() {
     return this.services.lowStock();
   }
 
-  handleFindByDims(length: number, width: number, height: number) {
+  async handleFindByDims(length: number, width: number, height: number) {
     return this.services.findByDims(length, width, height);
   }
 
-  handleAutoCreate(body: AutoCreatePackageInput) {
+  async handleAutoCreate(body: AutoCreatePackageInput) {
     return this.services.autoCreate(body);
   }
 
-  handleGetById(packageId: number) {
+  async handleGetById(packageId: number) {
     return this.services.getById(packageId);
   }
 
-  handleUpdate(packageId: number, body: SavePackageInput) {
+  async handleUpdate(packageId: number, body: SavePackageInput) {
     return this.services.update(packageId, body);
   }
 
-  handleDelete(packageId: number) {
+  async handleDelete(packageId: number) {
     return this.services.delete(packageId);
   }
 
-  handleReceive(packageId: number, body: PackageAdjustmentInput) {
+  async handleReceive(packageId: number, body: PackageAdjustmentInput) {
     return this.services.receive(packageId, body);
   }
 
-  handleAdjust(packageId: number, body: PackageAdjustmentInput) {
+  async handleAdjust(packageId: number, body: PackageAdjustmentInput) {
     return this.services.adjust(packageId, body);
   }
 
-  handleSetReorderLevel(packageId: number, reorderLevel: number) {
+  async handleSetReorderLevel(packageId: number, reorderLevel: number) {
     return this.services.setReorderLevel(packageId, reorderLevel);
   }
 
-  handleLedger(packageId: number) {
+  async handleLedger(packageId: number) {
     return this.services.ledger(packageId);
   }
 
-  handleSync() {
+  async handleSync() {
     return this.services.sync();
   }
 }

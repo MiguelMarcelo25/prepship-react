@@ -3,12 +3,22 @@ import type { ReactNode } from 'react'
 import { apiClient } from '../../api/client'
 import type { InitCountsDto, InitStoreDto } from '../../types/api'
 import { buildSidebarSections, SIDEBAR_STATUSES, type SidebarOrderStatus } from './sidebar-data'
-import { IconCheckCircle, IconChevronRight, IconInbox, IconXCircle } from './sidebar-icons'
+import {
+  IconBadge,
+  IconCheckCircle,
+  IconChevronRight,
+  IconInbox,
+  IconXCircle,
+  type IconTone,
+} from './sidebar-icons'
 
-const STATUS_META: Record<SidebarOrderStatus, { label: string; icon: ReactNode }> = {
-  awaiting_shipment: { label: 'Awaiting', icon: <IconInbox /> },
-  shipped: { label: 'Shipped', icon: <IconCheckCircle /> },
-  cancelled: { label: 'Cancelled', icon: <IconXCircle /> },
+const STATUS_META: Record<
+  SidebarOrderStatus,
+  { label: string; icon: ReactNode; tone: IconTone }
+> = {
+  awaiting_shipment: { label: 'Awaiting', icon: <IconInbox />, tone: 'amber' },
+  shipped: { label: 'Shipped', icon: <IconCheckCircle />, tone: 'emerald' },
+  cancelled: { label: 'Cancelled', icon: <IconXCircle />, tone: 'rose' },
 }
 
 interface SidebarOrdersProps {
@@ -86,7 +96,7 @@ export function SidebarOrders({
                   toggleExpanded(status)
                 }}
                 className={[
-                  'flex h-11 w-full items-center justify-start gap-3 rounded-xl px-3 transition-colors',
+                  'group flex h-11 w-full items-center justify-start gap-3 rounded-xl px-3 transition-colors',
                   isActive
                     ? 'bg-indigo-50 font-semibold text-indigo-700 dark:bg-indigo-500/10 dark:text-indigo-300'
                     : 'text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-muted)] hover:text-[var(--color-text-primary)]',
@@ -100,7 +110,9 @@ export function SidebarOrders({
                 >
                   <IconChevronRight />
                 </div>
-                <span className="opacity-90">{meta.icon}</span>
+                <IconBadge tone={meta.tone} active={isActive}>
+                  {meta.icon}
+                </IconBadge>
                 <span className="flex-1 truncate text-left text-[14.5px]">{meta.label}</span>
                 <span
                   className={[

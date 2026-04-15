@@ -1,32 +1,34 @@
 import type { ReactNode } from 'react'
 import type { ViewType } from './sidebar-data'
 import {
+  IconBadge,
   IconBarChart,
   IconBoxes,
-  IconChevronRight,
   IconDollarSign,
   IconFileText,
   IconMapPin,
   IconPackage,
   IconReceipt,
   IconSettings,
+  type IconTone,
 } from './sidebar-icons'
 
 interface WorkspaceItem {
   view: ViewType
   icon: ReactNode
   label: string
+  tone: IconTone
 }
 
 const WORKSPACE_ITEMS: WorkspaceItem[] = [
-  { view: 'inventory', icon: <IconBoxes />, label: 'Inventory' },
-  { view: 'locations', icon: <IconMapPin />, label: 'Locations' },
-  { view: 'packages', icon: <IconPackage />, label: 'Packages' },
-  { view: 'rates', icon: <IconDollarSign />, label: 'Rate Shop' },
-  { view: 'analysis', icon: <IconBarChart />, label: 'Analytics' },
-  { view: 'settings', icon: <IconSettings />, label: 'Settings' },
-  { view: 'billing', icon: <IconReceipt />, label: 'Billing' },
-  { view: 'manifests', icon: <IconFileText />, label: 'Manifests' },
+  { view: 'inventory', icon: <IconBoxes />, label: 'Inventory', tone: 'indigo' },
+  { view: 'locations', icon: <IconMapPin />, label: 'Locations', tone: 'rose' },
+  { view: 'packages', icon: <IconPackage />, label: 'Packages', tone: 'amber' },
+  { view: 'rates', icon: <IconDollarSign />, label: 'Rate Shop', tone: 'emerald' },
+  { view: 'analysis', icon: <IconBarChart />, label: 'Analytics', tone: 'violet' },
+  { view: 'settings', icon: <IconSettings />, label: 'Settings', tone: 'slate' },
+  { view: 'billing', icon: <IconReceipt />, label: 'Billing', tone: 'sky' },
+  { view: 'manifests', icon: <IconFileText />, label: 'Manifests', tone: 'teal' },
 ]
 
 interface SidebarWorkspaceProps {
@@ -57,20 +59,15 @@ export function SidebarWorkspace({ currentView, onSelect, filter = '' }: Sidebar
               type="button"
               onClick={() => onSelect(tool.view)}
               className={[
-                'flex h-9 w-full items-center justify-start gap-3 rounded-lg pl-14 pr-3 text-[13px] transition-colors',
+                'group flex h-10 w-full items-center justify-start gap-3 rounded-lg pl-10 pr-3 text-[13px] transition-colors',
                 isActive
                   ? 'bg-indigo-50 font-medium text-indigo-700 dark:bg-indigo-500/10 dark:text-indigo-300'
                   : 'text-[var(--color-text-tertiary)] hover:bg-[var(--color-bg-muted)] hover:text-[var(--color-text-primary)]',
               ].join(' ')}
             >
-              <span
-                className={[
-                  'shrink-0 transition-all',
-                  isActive ? 'opacity-100 text-indigo-600' : 'opacity-60',
-                ].join(' ')}
-              >
+              <IconBadge tone={tool.tone} active={isActive} size="sm">
                 {tool.icon}
-              </span>
+              </IconBadge>
               <span className="flex-1 truncate text-left">{tool.label}</span>
             </button>
           )

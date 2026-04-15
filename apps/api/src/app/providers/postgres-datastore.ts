@@ -11,11 +11,11 @@ import { SqliteAnalysisRepository } from "../../modules/analysis/data/sqlite-ana
 import { SqliteBillingRepository } from "../../modules/billing/data/sqlite-billing-repository.ts";
 import { SqliteClientRepository } from "../../modules/clients/data/sqlite-client-repository.ts";
 import { SqliteInitRepository } from "../../modules/init/data/sqlite-init-repository.ts";
-import { SqliteInventoryRepository } from "../../modules/inventory/data/sqlite-inventory-repository.ts";
+import { PgInventoryRepository } from "../../modules/inventory/data/pg-inventory-repository.ts";
 import { SqliteLabelRepository } from "../../modules/labels/data/sqlite-label-repository.ts";
 import { SqliteManifestRepository } from "../../modules/manifests/data/sqlite-manifest-repository.ts";
 import { SqliteOrderRepository } from "../../modules/orders/data/sqlite-order-repository.ts";
-import { SqlitePackageRepository } from "../../modules/packages/data/sqlite-package-repository.ts";
+import { PgPackageRepository } from "../../modules/packages/data/pg-package-repository.ts";
 import { SqliteProductRepository } from "../../modules/products/data/sqlite-product-repository.ts";
 import { SqliteRateRepository } from "../../modules/rates/data/sqlite-rate-repository.ts";
 import { SqliteSettingsRepository } from "../../modules/settings/data/sqlite-settings-repository.ts";
@@ -58,10 +58,10 @@ export function createPostgresDataStore(
     queueRepository: new SqliteQueueRepository(sqlite),
     billingRepository: new SqliteBillingRepository(sqlite),
     analysisRepository: new SqliteAnalysisRepository(sqlite),
-    inventoryRepository: new SqliteInventoryRepository(sqlite),
+    inventoryRepository: new PgInventoryRepository(pgPool),
     labelRepository: new SqliteLabelRepository(sqlite, mainApiKeyV2),
     manifestRepository: new SqliteManifestRepository(sqlite),
-    packageRepository: new SqlitePackageRepository(sqlite),
+    packageRepository: new PgPackageRepository(pgPool),
     productRepository: new SqliteProductRepository(sqlite),
     rateRepository: new SqliteRateRepository(sqlite, mainApiKeyV2),
 

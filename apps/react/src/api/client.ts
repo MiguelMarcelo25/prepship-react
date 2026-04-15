@@ -440,9 +440,10 @@ class ApiClient {
   /**
    * GET /inventory/alerts
    */
-  async fetchInventoryAlerts(): Promise<InventoryAlertDto[]> {
+  async fetchInventoryAlerts(clientId?: number): Promise<InventoryAlertDto[]> {
     return this.request<InventoryAlertDto[]>("/inventory/alerts", {
       method: "GET",
+      query: clientId ? { clientId } : undefined,
     });
   }
 
