@@ -290,6 +290,40 @@ class ApiClient {
   }
 
   /**
+   * GET /orders/export?orderStatus=...&pageSize=...
+   *
+   * Fetches the CSV export as a blob *with* the X-App-Token header set so it
+   * works on Vercel/Render where window.open() can't attach auth headers and
+   * relative /api paths don't reach the API at all. Mirrors the
+   * downloadQueuePrintJob / downloadManifest pattern.
+   */
+  async downloadOrdersExport(query: { orderStatus?: string; pageSize?: number } = {}): Promise<{ blob: Blob; filename: string }> {
+    const params = new URLSearchParams();
+    if (query.orderStatus) params.append("orderStatus", query.orderStatus);
+    if (query.pageSize != null) params.append("pageSize", String(query.pageSize));
+    const queryString = params.toString();
+    const url = `${this.baseUrl}/orders/export${queryString ? `?${queryString}` : ""}`;
+
+    const response = await fetch(url, {
+      method: "GET",
+      headers: this.buildHeaders(),
+    });
+
+    if (!response.ok) {
+      throw new ApiError(
+        response.status,
+        response.statusText,
+        await this.parseErrorMessage(response),
+      );
+    }
+
+    return {
+      blob: await response.blob(),
+      filename: this.getDownloadFilename(response.headers.get("content-disposition"), `orders_export_${Date.now()}.csv`),
+    };
+  }
+
+  /**
    * GET /orders/:id
    */
   async fetchOrderDetail(orderId: number): Promise<unknown> {
