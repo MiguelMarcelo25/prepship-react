@@ -181,27 +181,32 @@ export class ListOrdersService {
   async execute(query: ListOrdersQuery): Promise<ListOrdersResponse> {
     const result = await this.repository.list(query);
 
-    // Enrich orders with ShipStation residential status BEFORE mapping to DTO
-    // This ensures rates are fetched with the correct residential flag
-    if (this.residentialGateway && result.orders.length > 0) {
+    // Previously we called ShipStation's v1 /orders endpoint here to "enrich"
+    // residential status for every row. That was a 500–5000 ms blocking call
+    // on every page load — and when ShipStation rate-limited us (429) it would
+    // sit until the 5 s timeout, making the Orders page feel broken.
+    //
+    // The DB already extracts `source_residential` from the raw ShipStation
+    // JSON in the SELECT, so we have the original value for free. Only fall
+    // back to the gateway when we're missing it AND a gateway is configured.
+    const missing = result.orders.filter((record) => record.sourceResidential == null);
+    if (this.residentialGateway && missing.length > 0) {
       const residentialResults = await this.residentialGateway.lookupResidential(
-        result.orders.map((record) => ({
+        missing.map((record) => ({
           orderId: record.orderId,
           shipStationOrderNumber: record.orderNumber,
         })),
       );
 
-      // Merge ShipStation residential status into records
       const residentialMap = new Map(
         residentialResults
           .filter((r) => r.residential !== null)
           .map((r) => [r.orderId, r.residential]),
       );
 
-      for (const record of result.orders) {
+      for (const record of missing) {
         const ssResidential = residentialMap.get(record.orderId);
         if (ssResidential !== undefined) {
-          // Update sourceResidential if ShipStation provided a value
           record.sourceResidential = ssResidential;
         }
       }

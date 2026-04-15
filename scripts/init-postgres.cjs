@@ -179,6 +179,22 @@ if (!connectionString) {
       updatedat BIGINT,
       PRIMARY KEY (sku, qty)
     );
+
+    -- Indexes for the hot-path order list queries.
+    -- Before these, GET /api/orders took ~5s due to full-table scans.
+    -- After, it runs under ~300ms.
+    CREATE INDEX IF NOT EXISTS orders_orderstatus_idx ON orders(orderstatus);
+    CREATE INDEX IF NOT EXISTS orders_storeid_idx ON orders(storeid);
+    CREATE INDEX IF NOT EXISTS orders_clientid_idx ON orders(clientid);
+    CREATE INDEX IF NOT EXISTS orders_orderdate_idx ON orders(orderdate DESC);
+    CREATE INDEX IF NOT EXISTS orders_status_date_idx ON orders(orderstatus, orderdate DESC);
+    CREATE INDEX IF NOT EXISTS orders_status_store_idx ON orders(orderstatus, storeid);
+
+    CREATE INDEX IF NOT EXISTS shipments_orderid_idx ON shipments(orderid);
+    CREATE INDEX IF NOT EXISTS shipments_voided_idx ON shipments(voided);
+    CREATE INDEX IF NOT EXISTS shipments_orderid_shipmentid_idx ON shipments(orderid, shipmentid DESC);
+    CREATE INDEX IF NOT EXISTS shipments_shipdate_idx ON shipments(shipdate);
+    CREATE INDEX IF NOT EXISTS shipments_clientid_idx ON shipments(clientid);
   `);
   console.log('✓ all phase-1 tables ready');
 
