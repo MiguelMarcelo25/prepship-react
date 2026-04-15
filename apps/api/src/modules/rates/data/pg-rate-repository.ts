@@ -1,0 +1,280 @@
+import { createHash } from "node:crypto";
+import type { CarrierAccountDto } from "../../../../../../../packages/contracts/src/init/contracts.ts";
+import type { RateDimsDto, RateDto } from "../../../../../../../packages/contracts/src/rates/contracts.ts";
+import type { PgPool } from "../../../../../../../packages/shared/src/postgres/database.ts";
+import { BLOCKED_CARRIER_IDS, CARRIER_ACCOUNTS_V2 } from "../../../common/prepship-config.ts";
+import type { CachedRateRecord, RateRepository, RateSourceConfig, RefetchRateOrderRecord } from "../application/rate-repository.ts";
+
+export class PgRateRepository implements RateRepository {
+  private readonly pool: PgPool;
+  private readonly mainApiKeyV2: string | null;
+
+  constructor(pool: PgPool, mainApiKeyV2: string | null) {
+    this.pool = pool;
+    this.mainApiKeyV2 = mainApiKeyV2;
+  }
+
+  async getClientIdForStoreId(storeId: number): Promise<number | null> {
+    // storeids is stored as a JSON string (TEXT). Cast to jsonb to extract.
+    const { rows } = await this.pool.query<{ clientid: number }>(
+      `SELECT clientid
+       FROM clients
+       WHERE EXISTS (
+         SELECT 1
+         FROM jsonb_array_elements_text((storeids)::jsonb) AS s(value)
+         WHERE (s.value)::bigint = $1
+       )
+       LIMIT 1`,
+      [storeId],
+    );
+    return rows[0]?.clientid ?? null;
+  }
+
+  async getCurrentWeightVersion(): Promise<number> {
+    const { rows } = await this.pool.query<{ value: string | null }>(
+      `SELECT value FROM sync_meta WHERE key = 'weight_version'`,
+    );
+    return Number.parseInt(rows[0]?.value ?? "0", 10) || 0;
+  }
+
+  async getCachedRate(cacheKey: string): Promise<CachedRateRecord | null> {
+    const { rows } = await this.pool.query<{
+      rates: string;
+      best_rate: string | null;
+      weight_version: number | null;
+    }>(
+      `SELECT rates, best_rate, weight_version
+       FROM rate_cache
+       WHERE cache_key = $1`,
+      [cacheKey],
+    );
+    const row = rows[0];
+    if (!row) return null;
+    return {
+      ratesJson: row.rates,
+      bestRateJson: row.best_rate,
+      weightVersion: row.weight_version,
+    };
+  }
+
+  async listCarriersForClient(clientId: number | null): Promise<CarrierAccountDto[]> {
+    const rateSourceConfig = await this.getRateSourceConfig(clientId);
+    const sourceClientId = rateSourceConfig.sourceClientId;
+    const carrierGroupClientId = sourceClientId != null &&
+      CARRIER_ACCOUNTS_V2.some((carrier) => carrier.clientId === sourceClientId)
+      ? sourceClientId
+      : null;
+    const discoveredCarriers = await this.listDiscoveredCarriersForApiKey(
+      rateSourceConfig.apiKeyV2,
+      carrierGroupClientId,
+    );
+
+    if (discoveredCarriers.length > 0) {
+      return discoveredCarriers;
+    }
+
+    return CARRIER_ACCOUNTS_V2.filter((carrier) =>
+      !BLOCKED_CARRIER_IDS.has(carrier.shippingProviderId) &&
+      carrier.clientId === carrierGroupClientId,
+    );
+  }
+
+  async getRateSourceConfig(clientId: number | null): Promise<RateSourceConfig> {
+    if (clientId == null) {
+      return {
+        apiKeyV2: this.mainApiKeyV2,
+        sourceClientId: null,
+      };
+    }
+
+    const { rows: clientRows } = await this.pool.query<{
+      clientid: number;
+      rate_source_client_id: number | null;
+      ss_api_key_v2: string | null;
+    }>(
+      `SELECT clientid, rate_source_client_id, ss_api_key_v2
+       FROM clients WHERE clientid = $1 LIMIT 1`,
+      [clientId],
+    );
+    const client = clientRows[0];
+
+    if (!client) {
+      return {
+        apiKeyV2: this.mainApiKeyV2,
+        sourceClientId: null,
+      };
+    }
+
+    if (client.rate_source_client_id != null) {
+      const { rows: sourceRows } = await this.pool.query<{
+        clientid: number;
+        rate_source_client_id: number | null;
+        ss_api_key_v2: string | null;
+      }>(
+        `SELECT clientid, rate_source_client_id, ss_api_key_v2
+         FROM clients WHERE clientid = $1 LIMIT 1`,
+        [client.rate_source_client_id],
+      );
+      const source = sourceRows[0];
+      if (source?.ss_api_key_v2) {
+        return {
+          apiKeyV2: source.ss_api_key_v2,
+          sourceClientId: Number(source.clientid),
+        };
+      }
+    }
+
+    return {
+      apiKeyV2: client.ss_api_key_v2 ?? this.mainApiKeyV2,
+      sourceClientId: client.ss_api_key_v2 ? Number(client.clientid) : null,
+    };
+  }
+
+  async clearCaches(): Promise<void> {
+    await this.pool.query(`DELETE FROM rate_cache`);
+    try {
+      await this.pool.query(`DELETE FROM carrier_cache`);
+    } catch {
+      // carrier_cache may not exist in minimal setups
+    }
+  }
+
+  async listOrdersForRateRefetch(limit: number): Promise<RefetchRateOrderRecord[]> {
+    const { rows } = await this.pool.query<{
+      orderid: number;
+      storeid: number | null;
+      shiptopostalcode: string | null;
+      weightvalue: number | null;
+      residential: number | null;
+      rate_dims_l: number | null;
+      rate_dims_w: number | null;
+      rate_dims_h: number | null;
+    }>(
+      `SELECT o.orderid, o.storeid, o.shiptopostalcode, o.weightvalue,
+              ol.residential, ol.rate_dims_l, ol.rate_dims_w, ol.rate_dims_h
+       FROM orders o
+       LEFT JOIN order_local ol ON ol.orderid = o.orderid
+       WHERE o.orderstatus = 'awaiting_shipment'
+         AND o.shiptopostalcode IS NOT NULL
+         AND o.weightvalue > 0
+       ORDER BY o.orderid
+       LIMIT $1`,
+      [limit],
+    );
+
+    return rows.map((row) => ({
+      orderId: Number(row.orderid),
+      storeId: row.storeid == null ? null : Number(row.storeid),
+      shipToPostalCode: row.shiptopostalcode,
+      weightOz: row.weightvalue == null ? null : Number(row.weightvalue),
+      residential: row.residential !== 0,
+      dims: row.rate_dims_l && row.rate_dims_w && row.rate_dims_h
+        ? {
+            length: Number(row.rate_dims_l),
+            width: Number(row.rate_dims_w),
+            height: Number(row.rate_dims_h),
+          }
+        : null,
+    }));
+  }
+
+  async saveCachedRate(
+    cacheKey: string,
+    weightOz: number,
+    toZip: string,
+    rates: RateDto[],
+    bestRate: RateDto | null,
+    weightVersion: number,
+  ): Promise<void> {
+    await this.pool.query(
+      `INSERT INTO rate_cache (cache_key, weight_oz, to_zip, rates, best_rate, fetched_at, weight_version)
+       VALUES ($1, $2, $3, $4, $5, $6, $7)
+       ON CONFLICT (cache_key) DO UPDATE SET
+         weight_oz = EXCLUDED.weight_oz,
+         to_zip = EXCLUDED.to_zip,
+         rates = EXCLUDED.rates,
+         best_rate = EXCLUDED.best_rate,
+         fetched_at = EXCLUDED.fetched_at,
+         weight_version = EXCLUDED.weight_version`,
+      [
+        cacheKey,
+        weightOz,
+        toZip,
+        JSON.stringify(rates),
+        bestRate ? JSON.stringify(bestRate) : null,
+        Date.now(),
+        weightVersion,
+      ],
+    );
+  }
+
+  async saveReferenceRates(orderIds: number[], rates: RateDto[], weightOz: number, dims: RateDimsDto | null, storeId: number | null): Promise<void> {
+    if (orderIds.length === 0 || rates.length === 0) return;
+
+    const usps = rates
+      .filter((rate) => rate.shippingProviderId === 433542)
+      .map((rate) => Number(rate.shipmentCost ?? 0) + Number(rate.otherCost ?? 0));
+    const ups = rates
+      .filter((rate) => rate.shippingProviderId === 433543)
+      .map((rate) => Number(rate.shipmentCost ?? 0) + Number(rate.otherCost ?? 0));
+    const refUsps = usps.length > 0 ? Math.min(...usps) : null;
+    const refUps = ups.length > 0 ? Math.min(...ups) : null;
+    const now = Date.now();
+
+    void storeId;
+
+    for (const orderId of orderIds) {
+      await this.pool.query(
+        `INSERT INTO order_local (orderid, ref_usps_rate, ref_ups_rate, rate_weight_oz, rate_dims_l, rate_dims_w, rate_dims_h, updatedat)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+         ON CONFLICT (orderid) DO UPDATE SET
+           ref_usps_rate = CASE WHEN EXCLUDED.ref_usps_rate IS NOT NULL THEN EXCLUDED.ref_usps_rate ELSE order_local.ref_usps_rate END,
+           ref_ups_rate = CASE WHEN EXCLUDED.ref_ups_rate IS NOT NULL THEN EXCLUDED.ref_ups_rate ELSE order_local.ref_ups_rate END,
+           rate_weight_oz = EXCLUDED.rate_weight_oz,
+           rate_dims_l = EXCLUDED.rate_dims_l,
+           rate_dims_w = EXCLUDED.rate_dims_w,
+           rate_dims_h = EXCLUDED.rate_dims_h,
+           updatedat = EXCLUDED.updatedat`,
+        [orderId, refUsps, refUps, weightOz, dims?.length ?? null, dims?.width ?? null, dims?.height ?? null, now],
+      );
+    }
+  }
+
+  private async listDiscoveredCarriersForApiKey(apiKeyV2: string | null, carrierGroupClientId: number | null): Promise<CarrierAccountDto[]> {
+    if (!apiKeyV2) return [];
+
+    const discoveredProviderIds = await this.readDiscoveredProviderIds(apiKeyV2);
+    if (discoveredProviderIds.size === 0) return [];
+
+    return CARRIER_ACCOUNTS_V2.filter((carrier) =>
+      carrier.clientId === carrierGroupClientId &&
+      !BLOCKED_CARRIER_IDS.has(carrier.shippingProviderId) &&
+      discoveredProviderIds.has(carrier.shippingProviderId),
+    );
+  }
+
+  private async readDiscoveredProviderIds(apiKeyV2: string): Promise<Set<number>> {
+    try {
+      const apiKeyHash = createHash("sha256").update(apiKeyV2).digest("hex");
+      const { rows } = await this.pool.query<{ carriers: string }>(
+        `SELECT carriers FROM carrier_cache WHERE apikeyhash = $1 LIMIT 1`,
+        [apiKeyHash],
+      );
+      const row = rows[0];
+      if (!row?.carriers) return new Set();
+
+      const carriers = JSON.parse(row.carriers) as Array<Record<string, unknown>>;
+      return new Set(
+        carriers
+          .filter((carrier) => String(carrier.carrierCode ?? carrier.code ?? "") !== "unknown")
+          .map((carrier) => Number(
+            carrier.shippingProviderId ??
+            String(carrier.carrierId ?? carrier.carrier_id ?? "").replace(/^se-/, "")
+          ))
+          .filter(Number.isFinite),
+      );
+    } catch {
+      return new Set();
+    }
+  }
+}

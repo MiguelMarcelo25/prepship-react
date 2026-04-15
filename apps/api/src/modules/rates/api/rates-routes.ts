@@ -63,7 +63,7 @@ export function createRateRoutes(handler: RatesHttpHandler): RouteDef[] {
       try {
         const text = await request.text();
         const body = text ? JSON.parse(text) : [];
-        return jsonResponse(200, handler.handleCachedBulk(body));
+        return jsonResponse(200, await handler.handleCachedBulk(body));
       } catch (error) {
         const message = error instanceof Error ? error.message : "Unknown error";
         const status = inputErrorStatusWithMessages(["Expected array"])(error);

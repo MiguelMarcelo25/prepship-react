@@ -13,30 +13,30 @@ export class RatesHttpHandler {
     this.services = services;
   }
 
-  handleCached(query: GetCachedRatesQuery) {
+  async handleCached(query: GetCachedRatesQuery) {
     return this.services.getCached(query);
   }
 
-  handleCachedBulk(body: unknown) {
+  async handleCachedBulk(body: unknown) {
     if (!Array.isArray(body)) {
       throw new Error("Expected array");
     }
     return this.services.getCachedBulk(body);
   }
 
-  handleCarriersForStore(storeId: number | null): CarrierLookupResponseDto {
-    return { carriers: this.services.listCarriersForStore(storeId) };
+  async handleCarriersForStore(storeId: number | null): Promise<CarrierLookupResponseDto> {
+    return { carriers: await this.services.listCarriersForStore(storeId) };
   }
 
-  handleLiveRates(body: LiveRatesRequestDto) {
+  async handleLiveRates(body: LiveRatesRequestDto) {
     return this.services.getLiveRates(body);
   }
 
-  handleBrowseRates(body: BrowseRatesRequestDto) {
+  async handleBrowseRates(body: BrowseRatesRequestDto) {
     return this.services.browseRates(body);
   }
 
-  handleClearAndRefetch() {
+  async handleClearAndRefetch() {
     return this.services.clearAndRefetch();
   }
 

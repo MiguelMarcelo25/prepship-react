@@ -10,15 +10,15 @@ export class ProductServices {
     this.repository = repository;
   }
 
-  getBulk(skus: string[]) {
+  async getBulk(skus: string[]) {
     return this.repository.getBulk(skus);
   }
 
-  getBySku(sku: string) {
+  async getBySku(sku: string) {
     return this.repository.getBySku(sku);
   }
 
-  saveDefaults(input: SaveProductDefaultsInput) {
+  async saveDefaults(input: SaveProductDefaultsInput) {
     if (!input.productId && !input.sku) {
       throw new Error("productId or sku required");
     }

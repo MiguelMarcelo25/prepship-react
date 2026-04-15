@@ -64,12 +64,12 @@ Pairs with [ARCHITECTURE.md](ARCHITECTURE.md), [RUNBOOK.md](RUNBOOK.md), and [TE
 | Manifests | 2 | **Postgres (Supabase)** ✅ |
 | Analysis | 2 | **Postgres (Supabase)** ✅ |
 | Queue | 2 | **Postgres (Supabase)** ✅ |
+| Products | 2 | **Postgres (Supabase)** ✅ |
+| Rates | 2 | **Postgres (Supabase)** ✅ |
 | Billing | 2 | SQLite fallback (empty on Render) |
 | Labels | 2 | SQLite fallback (empty on Render) |
-| Rates | 2 | SQLite fallback (calls ShipStation live) |
-| Products | 2 | SQLite fallback (empty on Render) |
 
-**11 of 15 modules ported.** Phase 2 past the midpoint — 4 modules remaining (Billing, Labels, Rates, Products).
+**13 of 15 modules ported.** Phase 2 nearly done — 2 modules remaining (Billing, Labels).
 
 ### Phase 2 progress notes
 
@@ -79,7 +79,9 @@ Pairs with [ARCHITECTURE.md](ARCHITECTURE.md), [RUNBOOK.md](RUNBOOK.md), and [TE
 - **Manifests:** ported to `PgManifestRepository`. Only one query (shipments + orders JOIN for CSV export). No new tables needed — reuses Phase 1 shipments + orders. Verified end-to-end: CSV export of real shipments works against Supabase.
 - **Analysis:** ported to `PgAnalysisRepository`. Translated SQLite `json_each`/`json_extract` to Postgres `jsonb_array_elements` + `->>` for the daily-sales query, and `substr(date, 1, 10)` to `substring(date, 1, 10)`. Verified end-to-end: `GET /api/analysis/skus` returns full SKU breakdown for 1,272 orders across DR PREPPER + KFG.
 - **Queue:** ported to `PgQueueRepository`. Added `print_queue_orders` table + `print_queue_client_status_idx` to `scripts/init-postgres.cjs`. Used `ON CONFLICT (order_id, client_id) DO UPDATE SET` for the upsert. Had to update `queue-routes.ts` + `manifests-routes.ts` + `package-routes.ts` to `await` handler calls in routes using `route()` directly (routes using `jsonRoute()` already awaited internally).
-- **Remaining Phase 2 modules** (Billing, Labels, Rates, Products): not started. Each follows the same pattern — schema block in `init-postgres.cjs`, new `pg-*-repository.ts`, async conversion of the module's interface + services + handler, wire in `postgres-datastore.ts`.
+- **Products:** ported to `PgProductRepository`. Added `sku_defaults` table to `scripts/init-postgres.cjs`. Retained the fallback-to-`inventory_skus` logic for the `getBulk` query. Products table itself was already added with the inventory schema.
+- **Rates:** ported to `PgRateRepository`. Added `rate_cache` + `carrier_cache` tables to `scripts/init-postgres.cjs`. Translated the SQLite `json_each(clients.storeIds)` query to Postgres `jsonb_array_elements_text((storeids)::jsonb)` for the store→client lookup. Service had several scattered sync repo calls that all got `await`'d. Fixed a bug in the original where `getRateSourceConfig(clientId)` was called twice in the browseRates path — now cached in a local var.
+- **Remaining Phase 2 modules** (Billing, Labels): not started. Both are larger (821 LOC and 356 LOC respectively) and will get their own commit.
 
 ---
 

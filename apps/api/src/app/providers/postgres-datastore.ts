@@ -16,8 +16,8 @@ import { SqliteLabelRepository } from "../../modules/labels/data/sqlite-label-re
 import { PgManifestRepository } from "../../modules/manifests/data/pg-manifest-repository.ts";
 import { SqliteOrderRepository } from "../../modules/orders/data/sqlite-order-repository.ts";
 import { PgPackageRepository } from "../../modules/packages/data/pg-package-repository.ts";
-import { SqliteProductRepository } from "../../modules/products/data/sqlite-product-repository.ts";
-import { SqliteRateRepository } from "../../modules/rates/data/sqlite-rate-repository.ts";
+import { PgProductRepository } from "../../modules/products/data/pg-product-repository.ts";
+import { PgRateRepository } from "../../modules/rates/data/pg-rate-repository.ts";
 import { SqliteSettingsRepository } from "../../modules/settings/data/sqlite-settings-repository.ts";
 import { SqliteShipmentRepository } from "../../modules/shipments/data/sqlite-shipment-repository.ts";
 import { PgQueueRepository } from "../../modules/queue/data/pg-queue-repository.ts";
@@ -62,8 +62,8 @@ export function createPostgresDataStore(
     labelRepository: new SqliteLabelRepository(sqlite, mainApiKeyV2),
     manifestRepository: new PgManifestRepository(pgPool),
     packageRepository: new PgPackageRepository(pgPool),
-    productRepository: new SqliteProductRepository(sqlite),
-    rateRepository: new SqliteRateRepository(sqlite, mainApiKeyV2),
+    productRepository: new PgProductRepository(pgPool),
+    rateRepository: new PgRateRepository(pgPool, mainApiKeyV2),
 
     shipFromState: new InMemoryShipFromState(),
   };

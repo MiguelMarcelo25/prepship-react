@@ -303,6 +303,32 @@ if (!connectionString) {
     );
 
     CREATE INDEX IF NOT EXISTS print_queue_client_status_idx ON print_queue_orders(client_id, status);
+
+    CREATE TABLE IF NOT EXISTS sku_defaults (
+      sku TEXT PRIMARY KEY,
+      weightoz REAL DEFAULT 0,
+      length REAL DEFAULT 0,
+      width REAL DEFAULT 0,
+      height REAL DEFAULT 0,
+      packagecode TEXT,
+      updatedat BIGINT
+    );
+
+    CREATE TABLE IF NOT EXISTS rate_cache (
+      cache_key TEXT PRIMARY KEY,
+      weight_oz REAL,
+      to_zip TEXT,
+      rates TEXT,
+      best_rate TEXT,
+      fetched_at BIGINT,
+      weight_version INTEGER
+    );
+
+    CREATE TABLE IF NOT EXISTS carrier_cache (
+      apikeyhash TEXT PRIMARY KEY,
+      carriers TEXT NOT NULL,
+      fetched_at BIGINT NOT NULL
+    );
   `);
   console.log('✓ phase-2 inventory tables ready');
 
