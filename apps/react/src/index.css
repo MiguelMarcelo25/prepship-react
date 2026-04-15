@@ -1,3 +1,4 @@
+@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@100;200;300;400;500;600;700;800;900&display=swap');
 @import "tailwindcss";
 
 /* Keep the legacy CSS alive for the complex view components (OrdersView,
@@ -11,7 +12,7 @@
    Used by the new Tailwind-styled shell (Sidebar, topbar, layout).
 ════════════════════════════════════════════════ */
 @theme {
-  --font-sans: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+  --font-sans: "Poppins", "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
     "Helvetica Neue", Arial, sans-serif;
 
   /* Brand */
@@ -127,6 +128,7 @@
    outside .main also switches in dark mode. */
 html,
 body {
+  font-family: var(--font-sans) !important;
   background: var(--bg);
   color: var(--text);
   transition: background-color 0.15s ease, color 0.15s ease;

@@ -2506,36 +2506,6 @@ export default function OrdersView({
     <>
       <div id="view-orders">
         <div className="filterbar">
-          <div className="search-wrap" style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
-            <input
-              type="text"
-              id="searchInput"
-              placeholder="Search orders, SKUs, names…"
-              value={searchQuery}
-              onChange={(event) => onSearchQueryChange?.(event.target.value)}
-              style={{ paddingRight: 26, width: '100%' }}
-            />
-            <button
-              id="searchClear"
-              type="button"
-              onClick={() => onSearchQueryChange?.('')}
-              style={{
-                display: searchQuery ? 'flex' : 'none',
-                position: 'absolute',
-                right: 7,
-                background: 'none',
-                border: 'none',
-                cursor: 'pointer',
-                color: 'var(--text3)',
-                fontSize: 13,
-                padding: 2,
-                lineHeight: 1,
-              }}
-            >
-              ✕
-            </button>
-          </div>
-
           <select className="filter-sel" id="skuFilter" value={skuFilter} onChange={(event) => setSkuFilter(event.target.value)}>
             <option value="">All SKUs</option>
             {skuOptions.map((sku) => (
@@ -2556,6 +2526,17 @@ export default function OrdersView({
             <option value="last-90">Last 90 Days</option>
             <option value="custom">Custom…</option>
           </select>
+          <div className="search-wrap" style={{ display: 'flex', alignItems: 'center', gap: 6, position: 'relative' }}>
+            <span style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', opacity: 0.4, fontSize: 13, pointerEvents: 'none' }}>🔍</span>
+            <input
+              type="text"
+              placeholder="Search orders, SKUs, names…"
+              className="ship-select"
+              style={{ width: 220, paddingLeft: 30, fontSize: 12.5 }}
+              value={searchQuery}
+              onChange={(event) => onSearchQueryChange?.(event.target.value)}
+            />
+          </div>
 
           <div id="customDateWrap" style={{ display: dateFilter === 'custom' ? 'flex' : 'none', alignItems: 'center', gap: 4 }}>
             <input

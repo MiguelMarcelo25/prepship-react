@@ -25,7 +25,6 @@ export class SqliteInitRepository implements InitRepository {
     const rows = this.db.prepare(`
       SELECT DISTINCT name, storeIds
       FROM clients
-      WHERE active = 1
     `).all() as ClientStoreRow[];
 
     const stores: InitStoreDto[] = [];

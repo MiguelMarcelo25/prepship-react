@@ -255,7 +255,11 @@ function positionThumbnailPreview(cursorX: number, cursorY: number) {
   }
 }
 
-export default function InventoryView() {
+interface InventoryViewProps {
+  searchQuery?: string
+}
+
+export default function InventoryView({ searchQuery = '' }: InventoryViewProps) {
   const toastContext = useContext(ToastContext)
   const { stores } = useInitStores()
   const historyDefaults = useMemo(() => getInventoryDateRangePreset(), [])
@@ -826,21 +830,20 @@ export default function InventoryView() {
       {activeTab === 'stock' ? (
         <div id="inv-panel-stock">
           <div style={{ display: 'flex', gap: 8, marginBottom: 10, flexWrap: 'wrap', alignItems: 'center' }}>
-            <div className="search-wrap" style={{ flex: 1, maxWidth: 280 }}>
-              <input
-                type="text"
-                value={stockSearch}
-                onChange={(event) => setStockSearch(event.target.value)}
-                placeholder="Filter SKU or name…"
-                style={{ width: '100%' }}
-              />
-            </div>
             <select className="filter-sel" value={stockClientId} onChange={(event) => setStockClientId(event.target.value)}>
               <option value="">All Clients</option>
               {clients.map((client) => (
                 <option key={client.clientId} value={client.clientId}>{client.name}</option>
               ))}
             </select>
+            <input
+              type="text"
+              placeholder="Search SKU or item name…"
+              className="ship-select"
+              style={{ width: 180, fontSize: 12 }}
+              value={stockSearch}
+              onChange={(event) => setStockSearch(event.target.value)}
+            />
             <label style={{ fontSize: 12, color: 'var(--text2)', display: 'flex', alignItems: 'center', gap: 5, cursor: 'pointer' }}>
               <input type="checkbox" checked={alertOnly} onChange={(event) => setAlertOnly(event.target.checked)} /> Low/Out only
             </label>

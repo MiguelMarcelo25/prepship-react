@@ -20,7 +20,6 @@ export class PgInitRepository implements InitRepository {
     const { rows } = await this.pool.query(`
       SELECT DISTINCT name, storeids
       FROM clients
-      WHERE active = TRUE
     `);
 
     const stores: InitStoreDto[] = [];
@@ -106,11 +105,20 @@ export class PgInitRepository implements InitRepository {
       ORDER BY cnt DESC
     `;
 
-    const { rows: byStatusStore } = await this.pool.query(storeSql, params);
+    const { rows: byStatusStoreRaw } = await this.pool.query(storeSql, params);
 
-    return { 
-        byStatus: byStatus as any, 
-        byStatusStore: byStatusStore as any 
+    // node-pg returns BIGINT columns as strings to avoid precision loss.
+    // Normalize storeId to a number so client-side Map<number, string> lookups
+    // in sidebar-data.ts work regardless of the pg column type.
+    const byStatusStore = byStatusStoreRaw.map((row: any) => ({
+      orderStatus: row.orderStatus,
+      storeId: row.storeId == null ? null : Number(row.storeId),
+      cnt: Number(row.cnt),
+    }));
+
+    return {
+      byStatus: byStatus as any,
+      byStatusStore: byStatusStore as any,
     };
   }
 

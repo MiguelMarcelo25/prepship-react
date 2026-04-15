@@ -48,7 +48,12 @@ export class InitServices {
   }
 
   async getStores(): Promise<InitStoreDto[]> {
-    const remoteStores = await this.metadataProvider.listStores();
+    let remoteStores: InitStoreDto[] = [];
+    try {
+      remoteStores = await this.metadataProvider.listStores();
+    } catch (err) {
+      console.warn(`Failed to fetch remote stores from ShipStation, using local stores only:`, err);
+    }
     return this.mergeStores(remoteStores);
   }
 

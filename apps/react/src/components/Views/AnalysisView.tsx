@@ -222,7 +222,11 @@ function drawAnalysisChartBase(
   }
 }
 
-export default function AnalysisView() {
+interface AnalysisViewProps {
+  searchQuery?: string
+}
+
+export default function AnalysisView({ searchQuery = '' }: AnalysisViewProps) {
   const toastContext = useContext(ToastContext)
   const initialFilters = getInitialAnalysisFilters(typeof window === 'undefined' ? null : window.localStorage)
   const [from, setFrom] = useState(initialFilters.from)
