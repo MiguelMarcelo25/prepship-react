@@ -114,4 +114,22 @@ export class PgClientRepository implements ClientRepository {
       }
     }
   }
+
+  async reattributeOrdersByStoreId(): Promise<{ updated: number }> {
+    // Build the (storeid → clientid) mapping from clients.storeids (TEXT
+    // JSON), then update every order whose current clientid doesn't match
+    // what its storeid should resolve to. One SQL round trip.
+    const result = await this.pool.query(
+      `UPDATE orders o
+       SET clientid = m.clientid
+       FROM (
+         SELECT c.clientid, elem::bigint AS storeid
+         FROM clients c,
+              jsonb_array_elements_text(c.storeids::jsonb) elem
+       ) m
+       WHERE o.storeid = m.storeid
+         AND (o.clientid IS NULL OR o.clientid <> m.clientid)`,
+    );
+    return { updated: result.rowCount ?? 0 };
+  }
 }

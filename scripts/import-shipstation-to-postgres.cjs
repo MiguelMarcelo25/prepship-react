@@ -13,8 +13,9 @@
  *   5. Upserts shipments for the same date range
  *
  * Usage:
- *   node scripts/import-shipstation-to-postgres.cjs              # last 30 days
+ *   node scripts/import-shipstation-to-postgres.cjs              # last 365 days (default)
  *   node scripts/import-shipstation-to-postgres.cjs --days 7     # last 7 days
+ *   node scripts/import-shipstation-to-postgres.cjs --days all   # no date filter, pull everything
  *   node scripts/import-shipstation-to-postgres.cjs --clear      # wipe mock data first
  *   node scripts/import-shipstation-to-postgres.cjs --dry-run    # don't write, just report
  *
@@ -58,12 +59,15 @@ const ACCOUNTS = [
 ];
 
 const args = process.argv.slice(2);
-const DAYS = args.includes('--days') ? parseInt(args[args.indexOf('--days') + 1], 10) : 30;
+const daysArgRaw = args.includes('--days') ? args[args.indexOf('--days') + 1] : null;
+const DAYS_ALL = daysArgRaw === 'all';
+const DAYS = DAYS_ALL ? null : (daysArgRaw != null ? parseInt(daysArgRaw, 10) : 365);
 const CLEAR = args.includes('--clear');
 const DRY_RUN = args.includes('--dry-run');
 
 const PAGE_SIZE = 500;
 const RATE_LIMIT_DELAY_MS = 1500; // ShipStation = 40 req/min, leave margin
+const DB_CHUNK = 500;              // rows per multi-row INSERT
 
 // ─── Helpers ──────────────────────────────────────────────────────────────
 function authHeader(apiKey, apiSecret) {
@@ -99,6 +103,125 @@ function dateToSsFilter(date) {
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`;
 }
 
+// Multi-row INSERT ON CONFLICT for orders. Replaces the old per-row loop
+// (one query per order) with one query per chunk of DB_CHUNK rows.
+// clientId here is the ShipStation account's own clientId — POST-import you
+// should call POST /api/clients/reattribute to fix this based on storeId.
+async function upsertOrdersBatch(pg, orders, accountClientId) {
+  let inserted = 0;
+  for (let start = 0; start < orders.length; start += DB_CHUNK) {
+    const chunk = orders.slice(start, start + DB_CHUNK);
+    const placeholders = [];
+    const values = [];
+    let p = 1;
+    for (const o of chunk) {
+      placeholders.push(
+        `($${p++},$${p++},$${p++},$${p++},$${p++},$${p++},$${p++},$${p++},$${p++},$${p++},$${p++},$${p++},$${p++},$${p++},$${p++},$${p++},$${p++},$${p++},$${p++},$${p++})`,
+      );
+      values.push(
+        o.orderId,
+        o.orderNumber ?? '',
+        o.orderStatus ?? 'awaiting_shipment',
+        o.orderDate ?? null,
+        o.advancedOptions?.storeId ?? null,
+        o.customerEmail ?? null,
+        o.shipTo?.name ?? null,
+        o.shipTo?.city ?? null,
+        o.shipTo?.state ?? null,
+        o.shipTo?.postalCode ?? null,
+        o.carrierCode ?? null,
+        o.serviceCode ?? null,
+        o.weight?.value ?? null,
+        o.orderTotal ?? 0,
+        o.shippingAmount ?? 0,
+        JSON.stringify(o.items ?? []),
+        JSON.stringify(o),
+        Date.now(),
+        accountClientId,
+        o.advancedOptions?.nonMachinable ? 1 : 0,
+      );
+    }
+    try {
+      const res = await pg.query(
+        `INSERT INTO orders (
+          orderid, ordernumber, orderstatus, orderdate, storeid, customeremail,
+          shiptoname, shiptocity, shiptostate, shiptopostalcode, carriercode,
+          servicecode, weightvalue, ordertotal, shippingamount, items, raw,
+          updatedat, clientid, externally_fulfilled_verified
+        ) VALUES ${placeholders.join(',')}
+        ON CONFLICT (orderid) DO UPDATE SET
+          orderstatus = EXCLUDED.orderstatus,
+          carriercode = EXCLUDED.carriercode,
+          servicecode = EXCLUDED.servicecode,
+          items = EXCLUDED.items,
+          raw = EXCLUDED.raw,
+          updatedat = EXCLUDED.updatedat`,
+        values,
+      );
+      inserted += res.rowCount ?? chunk.length;
+    } catch (err) {
+      console.warn(`   order chunk (${chunk.length} rows) failed: ${err.message}`);
+    }
+  }
+  return inserted;
+}
+
+// Multi-row INSERT ON CONFLICT for shipments. Same rationale as above.
+async function upsertShipmentsBatch(pg, shipments, accountClientId) {
+  let inserted = 0;
+  for (let start = 0; start < shipments.length; start += DB_CHUNK) {
+    const chunk = shipments.slice(start, start + DB_CHUNK);
+    const placeholders = [];
+    const values = [];
+    let p = 1;
+    for (const s of chunk) {
+      placeholders.push(
+        `($${p++},$${p++},$${p++},$${p++},$${p++},$${p++},$${p++},$${p++},$${p++},$${p++},$${p++},$${p++},$${p++},$${p++},$${p++},$${p++},$${p++},$${p++},$${p++})`,
+      );
+      values.push(
+        s.shipmentId,
+        s.orderId ?? null,
+        s.orderNumber ?? null,
+        s.carrierCode ?? null,
+        s.serviceCode ?? null,
+        s.trackingNumber ?? null,
+        s.shipDate ?? null,
+        s.shipmentCost ?? 0,
+        s.otherCost ?? 0,
+        !!s.voided,
+        Date.now(),
+        s.advancedOptions?.storeId ?? null,
+        s.createDate ?? null,
+        s.weight?.value ?? null,
+        s.dimensions?.length ?? null,
+        s.dimensions?.width ?? null,
+        s.dimensions?.height ?? null,
+        'shipstation',
+        accountClientId,
+      );
+    }
+    try {
+      const res = await pg.query(
+        `INSERT INTO shipments (
+          shipmentid, orderid, ordernumber, carriercode, servicecode,
+          trackingnumber, shipdate, shipmentcost, othercost, voided,
+          updatedat, provideraccountid, createdate, weight_oz,
+          dims_l, dims_w, dims_h, source, clientid
+        ) VALUES ${placeholders.join(',')}
+        ON CONFLICT (shipmentid) DO UPDATE SET
+          voided = EXCLUDED.voided,
+          shipmentcost = EXCLUDED.shipmentcost,
+          updatedat = EXCLUDED.updatedat`,
+        values,
+      );
+      inserted += res.rowCount ?? chunk.length;
+    } catch (err) {
+      console.warn(`   shipment chunk (${chunk.length} rows) failed: ${err.message}`);
+    }
+  }
+  return inserted;
+}
+
 // ─── Main ─────────────────────────────────────────────────────────────────
 (async () => {
   const connectionString = process.env.DATABASE_URL;
@@ -124,9 +247,14 @@ function dateToSsFilter(date) {
     }
   }
 
-  const dateFrom = new Date(Date.now() - DAYS * 24 * 60 * 60 * 1000);
-  const dateFromStr = dateToSsFilter(dateFrom);
-  console.log(`\nImporting orders modified since ${dateFromStr} (last ${DAYS} days)`);
+  const dateFromStr = DAYS_ALL
+    ? null
+    : dateToSsFilter(new Date(Date.now() - DAYS * 24 * 60 * 60 * 1000));
+  if (DAYS_ALL) {
+    console.log(`\nImporting ALL orders (no date filter)`);
+  } else {
+    console.log(`\nImporting orders modified since ${dateFromStr} (last ${DAYS} days)`);
+  }
 
   let totalOrders = 0;
   let totalShipments = 0;
@@ -187,58 +315,16 @@ function dateToSsFilter(date) {
           page: String(page),
           sortBy: 'ModifyDate',
           sortDir: 'DESC',
-          modifyDateStart: dateFromStr,
         });
+        if (dateFromStr) query.set('modifyDateStart', dateFromStr);
         const result = await ssGet(auth, `/orders?${query.toString()}`);
         const orders = result.orders ?? [];
         console.log(`   ${status} page ${page}/${result.pages}: ${orders.length} orders`);
         if (orders.length === 0) break;
 
         if (!DRY_RUN) {
-          for (const o of orders) {
-            try {
-              await pg.query(
-                `INSERT INTO orders (
-                  orderid, ordernumber, orderstatus, orderdate, storeid, customeremail,
-                  shiptoname, shiptocity, shiptostate, shiptopostalcode, carriercode,
-                  servicecode, weightvalue, ordertotal, shippingamount, items, raw,
-                  updatedat, clientid, externally_fulfilled_verified
-                ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20)
-                ON CONFLICT (orderid) DO UPDATE SET
-                  orderstatus = EXCLUDED.orderstatus,
-                  carriercode = EXCLUDED.carriercode,
-                  servicecode = EXCLUDED.servicecode,
-                  items = EXCLUDED.items,
-                  raw = EXCLUDED.raw,
-                  updatedat = EXCLUDED.updatedat`,
-                [
-                  o.orderId,
-                  o.orderNumber ?? '',
-                  o.orderStatus ?? 'awaiting_shipment',
-                  o.orderDate ?? null,
-                  o.advancedOptions?.storeId ?? null,
-                  o.customerEmail ?? null,
-                  o.shipTo?.name ?? null,
-                  o.shipTo?.city ?? null,
-                  o.shipTo?.state ?? null,
-                  o.shipTo?.postalCode ?? null,
-                  o.carrierCode ?? null,
-                  o.serviceCode ?? null,
-                  o.weight?.value ?? null,
-                  o.orderTotal ?? 0,
-                  o.shippingAmount ?? 0,
-                  JSON.stringify(o.items ?? []),
-                  JSON.stringify(o),
-                  Date.now(),
-                  account.clientId,
-                  o.advancedOptions?.nonMachinable ? 1 : 0,
-                ],
-              );
-              accountOrderCount += 1;
-            } catch (err) {
-              console.warn(`   orderId ${o.orderId} insert failed: ${err.message}`);
-            }
-          }
+          const inserted = await upsertOrdersBatch(pg, orders, account.clientId);
+          accountOrderCount += inserted;
         }
         if (page >= result.pages) break;
         page += 1;
@@ -258,54 +344,16 @@ function dateToSsFilter(date) {
           page: String(page),
           sortBy: 'CreateDate',
           sortDir: 'DESC',
-          shipDateStart: dateFromStr.split(' ')[0],
         });
+        if (dateFromStr) query.set('shipDateStart', dateFromStr.split(' ')[0]);
         const result = await ssGet(auth, `/shipments?${query.toString()}`);
         const shipments = result.shipments ?? [];
         console.log(`   shipments page ${page}/${result.pages}: ${shipments.length} shipments`);
         if (shipments.length === 0) break;
 
         if (!DRY_RUN) {
-          for (const s of shipments) {
-            try {
-              await pg.query(
-                `INSERT INTO shipments (
-                  shipmentid, orderid, ordernumber, carriercode, servicecode,
-                  trackingnumber, shipdate, shipmentcost, othercost, voided,
-                  updatedat, provideraccountid, createdate, weight_oz,
-                  dims_l, dims_w, dims_h, source, clientid
-                ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19)
-                ON CONFLICT (shipmentid) DO UPDATE SET
-                  voided = EXCLUDED.voided,
-                  shipmentcost = EXCLUDED.shipmentcost,
-                  updatedat = EXCLUDED.updatedat`,
-                [
-                  s.shipmentId,
-                  s.orderId ?? null,
-                  s.orderNumber ?? null,
-                  s.carrierCode ?? null,
-                  s.serviceCode ?? null,
-                  s.trackingNumber ?? null,
-                  s.shipDate ?? null,
-                  s.shipmentCost ?? 0,
-                  s.otherCost ?? 0,
-                  !!s.voided,
-                  Date.now(),
-                  s.advancedOptions?.storeId ?? null,
-                  s.createDate ?? null,
-                  (s.weight?.value ?? null),
-                  s.dimensions?.length ?? null,
-                  s.dimensions?.width ?? null,
-                  s.dimensions?.height ?? null,
-                  'shipstation',
-                  account.clientId,
-                ],
-              );
-              accountShipCount += 1;
-            } catch (err) {
-              console.warn(`   shipmentId ${s.shipmentId} insert failed: ${err.message}`);
-            }
-          }
+          const inserted = await upsertShipmentsBatch(pg, shipments, account.clientId);
+          accountShipCount += inserted;
         }
         if (page >= result.pages) break;
         page += 1;

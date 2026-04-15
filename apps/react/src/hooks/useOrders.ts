@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { apiClient } from "../api/client";
 import type { OrderSummaryDto } from "../types/api";
 
@@ -29,11 +29,13 @@ export function useOrders(status: string, options: UseOrdersOptions = {}): UseOr
   const [total, setTotal] = useState(0);
   const [pages, setPages] = useState(0);
   const [currentPage, setCurrentPage] = useState(page);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
+  const hasFetchedOnce = useRef(false);
 
   const fetchOrders = useCallback(async (pageNum: number) => {
-    setLoading(true);
+    // Only show loading on the very first fetch; afterwards keep stale data visible
+    if (!hasFetchedOnce.current) setLoading(true);
     setError(null);
 
     try {
@@ -51,6 +53,7 @@ export function useOrders(status: string, options: UseOrdersOptions = {}): UseOr
       setTotal(response.total);
       setPages(response.pages);
       setCurrentPage(pageNum);
+      hasFetchedOnce.current = true;
     } catch (err) {
       const error = err instanceof Error ? err : new Error("Failed to fetch orders");
       setError(error);

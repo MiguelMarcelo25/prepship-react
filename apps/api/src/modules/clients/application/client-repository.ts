@@ -8,4 +8,8 @@ export interface ClientRepository {
   update(clientId: number, input: UpdateClientInput): Promise<void>;
   softDelete(clientId: number): Promise<void>;
   syncFromStores(stores: InitStoreDto[]): Promise<void>;
+  // Rewrites orders.clientid based on the client.storeIds → orders.storeid
+  // mapping. Returns how many rows were changed. Used as a one-off repair
+  // when ShipStation-account-based clientIds leak into the orders table.
+  reattributeOrdersByStoreId(): Promise<{ updated: number }>;
 }

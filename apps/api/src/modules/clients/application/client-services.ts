@@ -66,4 +66,9 @@ export class ClientServices {
       clients: await this.list(),
     };
   }
+
+  async reattributeOrders() {
+    const result = await this.repository.reattributeOrdersByStoreId();
+    return { ok: true, updated: result.updated };
+  }
 }

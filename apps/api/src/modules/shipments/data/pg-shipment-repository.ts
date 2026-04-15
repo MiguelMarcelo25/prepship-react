@@ -72,14 +72,69 @@ export class PgShipmentRepository implements ShipmentRepository {
     return rows.length > 0 ? Number(rows[0].clientid) : null;
   }
 
+  async getOrderLookupByNumbers(
+    orderNumbers: string[],
+  ): Promise<Map<string, { orderId: number; clientId: number | null }>> {
+    const result = new Map<string, { orderId: number; clientId: number | null }>();
+    if (orderNumbers.length === 0) return result;
+    // Dedupe to avoid bloating the parameter array when ShipStation returns
+    // multiple shipments for the same order number.
+    const unique = Array.from(new Set(orderNumbers));
+    const { rows } = await this.pool.query(
+      "SELECT ordernumber, orderid, clientid FROM orders WHERE ordernumber = ANY($1::text[])",
+      [unique],
+    );
+    for (const row of rows as Array<{ ordernumber: string; orderid: number | string; clientid: number | string | null }>) {
+      result.set(row.ordernumber, {
+        orderId: Number(row.orderid),
+        clientId: row.clientid == null ? null : Number(row.clientid),
+      });
+    }
+    return result;
+  }
+
   async upsertShipmentBatch(shipments: ShipmentSyncRecord[]): Promise<void> {
-    for (const shipment of shipments) {
+    if (shipments.length === 0) return;
+    // Multi-row VALUES upsert. 19 columns × 500 rows = 9,500 params, well under
+    // Postgres's 65,535 parameter cap. Chunk to stay comfortably below it.
+    const CHUNK = 500;
+    for (let start = 0; start < shipments.length; start += CHUNK) {
+      const chunk = shipments.slice(start, start + CHUNK);
+      const placeholders: string[] = [];
+      const values: unknown[] = [];
+      let p = 1;
+      for (const s of chunk) {
+        placeholders.push(
+          `($${p++},$${p++},$${p++},$${p++},$${p++},$${p++},$${p++},$${p++},$${p++},$${p++},$${p++},$${p++},$${p++},$${p++},$${p++},$${p++},$${p++},$${p++},$${p++})`,
+        );
+        values.push(
+          s.shipmentId,
+          s.orderId,
+          s.orderNumber,
+          s.carrierCode,
+          s.serviceCode,
+          s.trackingNumber,
+          s.shipDate,
+          s.shipmentCost,
+          s.otherCost,
+          s.voided,
+          s.updatedAt,
+          s.clientId,
+          s.source,
+          s.createDate,
+          s.providerAccountId,
+          s.weightOz,
+          s.dimsLength,
+          s.dimsWidth,
+          s.dimsHeight,
+        );
+      }
       await this.pool.query(
         `INSERT INTO shipments (
           shipmentid, orderid, ordernumber, carriercode, servicecode, trackingnumber,
           shipdate, shipmentcost, othercost, voided, updatedat, clientid, source,
           createdate, provideraccountid, weight_oz, dims_l, dims_w, dims_h
-        ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19)
+        ) VALUES ${placeholders.join(",")}
         ON CONFLICT (shipmentid) DO UPDATE SET
           orderid = EXCLUDED.orderid,
           ordernumber = EXCLUDED.ordernumber,
@@ -99,45 +154,38 @@ export class PgShipmentRepository implements ShipmentRepository {
           dims_l = EXCLUDED.dims_l,
           dims_w = EXCLUDED.dims_w,
           dims_h = EXCLUDED.dims_h`,
-        [
-          shipment.shipmentId,
-          shipment.orderId,
-          shipment.orderNumber,
-          shipment.carrierCode,
-          shipment.serviceCode,
-          shipment.trackingNumber,
-          shipment.shipDate,
-          shipment.shipmentCost,
-          shipment.otherCost,
-          shipment.voided,
-          shipment.updatedAt,
-          shipment.clientId,
-          shipment.source,
-          shipment.createDate,
-          shipment.providerAccountId,
-          shipment.weightOz,
-          shipment.dimsLength,
-          shipment.dimsWidth,
-          shipment.dimsHeight,
-        ],
+        values,
       );
     }
   }
 
   async backfillOrderLocalFromShipments(shipments: ShipmentSyncRecord[]): Promise<void> {
     const now = Math.floor(Date.now() / 1000);
-    for (const shipment of shipments) {
-      if (!shipment.voided && shipment.trackingNumber) {
-        await this.pool.query(
-          `INSERT INTO order_local (orderid, tracking_number, shipping_account, updatedat)
-           VALUES ($1, $2, $3, $4)
-           ON CONFLICT (orderid) DO UPDATE SET
-             tracking_number = COALESCE(order_local.tracking_number, EXCLUDED.tracking_number),
-             shipping_account = COALESCE(order_local.shipping_account, EXCLUDED.shipping_account),
-             updatedat = EXCLUDED.updatedat`,
-          [shipment.orderId, shipment.trackingNumber, shipment.providerAccountId, now],
-        );
+    const filtered = shipments.filter((s) => !s.voided && s.trackingNumber);
+    if (filtered.length === 0) return;
+    // Deduplicate by orderId – keep the last occurrence (most recent shipment wins)
+    const byOrder = new Map<string, ShipmentSyncRecord>();
+    for (const s of filtered) byOrder.set(s.orderId, s);
+    const rows = [...byOrder.values()];
+    const CHUNK = 1000;
+    for (let start = 0; start < rows.length; start += CHUNK) {
+      const chunk = rows.slice(start, start + CHUNK);
+      const placeholders: string[] = [];
+      const values: unknown[] = [];
+      let p = 1;
+      for (const s of chunk) {
+        placeholders.push(`($${p++},$${p++},$${p++},$${p++})`);
+        values.push(s.orderId, s.trackingNumber, s.providerAccountId, now);
       }
+      await this.pool.query(
+        `INSERT INTO order_local (orderid, tracking_number, shipping_account, updatedat)
+         VALUES ${placeholders.join(",")}
+         ON CONFLICT (orderid) DO UPDATE SET
+           tracking_number = COALESCE(order_local.tracking_number, EXCLUDED.tracking_number),
+           shipping_account = COALESCE(order_local.shipping_account, EXCLUDED.shipping_account),
+           updatedat = EXCLUDED.updatedat`,
+        values,
+      );
     }
   }
 }

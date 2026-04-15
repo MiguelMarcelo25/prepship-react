@@ -274,14 +274,21 @@ export class OrderStatusSyncWorkerV2 {
         for (const o of awaitingOrders) {
           if (existingIds.has(o.orderId)) continue;
           const storeId = o.advancedOptions?.storeId ?? null;
-          let clientId = acc.clientId;
-          if (clientId === 0 && storeId) {
+          // Always resolve the real client by storeId — the ShipStation
+          // account (acc.clientId) is just the credential holder, not the
+          // end client. A single SS account can host stores for multiple
+          // clients, so storeId is the authoritative key. Fall back to the
+          // account's own clientId only when there is no storeId at all.
+          let clientId: number | null = null;
+          if (storeId != null) {
             const matching = clients.find((c) => {
               try { return JSON.parse(c.storeIds ?? "[]").includes(storeId); } catch { return false; }
             });
             if (matching) clientId = matching.clientId;
           }
-          if (acc.clientId === 0 && clientId === 0) continue;
+          if (clientId == null) clientId = acc.clientId;
+          // Still no client (main account, no storeId match) — skip.
+          if (!clientId) continue;
           ordersToUpsert.push({
             orderId: o.orderId, orderNumber: o.orderNumber, orderStatus: o.orderStatus,
             orderDate: o.orderDate, storeId, customerEmail: o.customerEmail,

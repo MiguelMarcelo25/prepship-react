@@ -67,6 +67,22 @@ export class SqliteShipmentRepository implements ShipmentRepository {
     return row?.clientId ?? null;
   }
 
+  async getOrderLookupByNumbers(
+    orderNumbers: string[],
+  ): Promise<Map<string, { orderId: number; clientId: number | null }>> {
+    const result = new Map<string, { orderId: number; clientId: number | null }>();
+    if (orderNumbers.length === 0) return result;
+    const unique = Array.from(new Set(orderNumbers));
+    const placeholders = unique.map(() => "?").join(",");
+    const rows = this.db
+      .prepare(`SELECT orderNumber, orderId, clientId FROM orders WHERE orderNumber IN (${placeholders})`)
+      .all(...unique) as Array<{ orderNumber: string; orderId: number; clientId: number | null }>;
+    for (const row of rows) {
+      result.set(row.orderNumber, { orderId: row.orderId, clientId: row.clientId ?? null });
+    }
+    return result;
+  }
+
   async upsertShipmentBatch(shipments: ShipmentSyncRecord[]): Promise<void> {
     const stmt = this.db.prepare(`
       INSERT INTO shipments (

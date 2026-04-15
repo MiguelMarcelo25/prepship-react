@@ -94,4 +94,30 @@ export class SqliteClientRepository implements ClientRepository {
       }
     }
   }
+
+  async reattributeOrdersByStoreId(): Promise<{ updated: number }> {
+    const clients = this.db
+      .prepare(`SELECT clientId, storeIds FROM clients`)
+      .all() as Array<{ clientId: number; storeIds: string | null }>;
+    const storeToClient = new Map<number, number>();
+    for (const c of clients) {
+      try {
+        for (const sid of JSON.parse(c.storeIds ?? "[]") as number[]) {
+          storeToClient.set(sid, c.clientId);
+        }
+      } catch { /* ignore bad JSON */ }
+    }
+    const update = this.db.prepare(`UPDATE orders SET clientId = ? WHERE orderId = ? AND (clientId IS NULL OR clientId != ?)`);
+    let updated = 0;
+    for (const [storeId, clientId] of storeToClient) {
+      const rows = this.db
+        .prepare(`SELECT orderId FROM orders WHERE storeId = ? AND (clientId IS NULL OR clientId != ?)`)
+        .all(storeId, clientId) as Array<{ orderId: number }>;
+      for (const r of rows) {
+        const res = update.run(clientId, r.orderId, clientId);
+        updated += Number(res.changes ?? 0);
+      }
+    }
+    return { updated };
+  }
 }

@@ -66,38 +66,49 @@ export class SqliteInitRepository implements InitRepository {
       : "";
     const params = [...this.excludedStoreIds];
 
+    // Use the same logic as the orders list query so counts match:
+    // awaiting_shipment orders with external_shipped, externallyFulfilled,
+    // or a label (non-voided shipment with cost) are counted as "shipped".
+    const shipmentJoin = `
+      LEFT JOIN (
+        SELECT s.orderId, (s.shipmentCost + COALESCE(s.otherCost, 0)) AS label_cost
+        FROM shipments s
+        INNER JOIN (
+          SELECT orderId, MAX(shipmentId) AS shipmentId
+          FROM shipments WHERE voided = 0 GROUP BY orderId
+        ) ls ON s.shipmentId = ls.shipmentId
+      ) ship ON ship.orderId = o.orderId
+    `;
+
+    const effectiveStatus = `
+      CASE
+        WHEN o.orderStatus = 'awaiting_shipment'
+          AND (
+            COALESCE(ol.external_shipped, 0) = 1
+            OR COALESCE(json_extract(o.raw, '$.externallyFulfilled'), 0) = 1
+            OR ship.label_cost IS NOT NULL
+          )
+        THEN 'shipped'
+        ELSE o.orderStatus
+      END
+    `;
+
     const byStatus = this.db.prepare(`
-      SELECT o.orderStatus, COUNT(*) AS cnt
+      SELECT ${effectiveStatus} AS orderStatus, COUNT(*) AS cnt
       FROM orders o
       LEFT JOIN order_local ol ON o.orderId = ol.orderId
-      WHERE NOT (o.orderStatus = 'awaiting_shipment' AND COALESCE(ol.external_shipped, 0) = 1)
-        AND NOT (o.orderStatus = 'awaiting_shipment' AND COALESCE(json_extract(o.raw, '$.externallyFulfilled'), 0) = 1)
-        AND NOT (
-          o.orderStatus = 'awaiting_shipment'
-          AND EXISTS (
-            SELECT 1 FROM shipments s
-            WHERE s.orderId = o.orderId AND s.voided = 0
-          )
-        )
-        ${excludeClause}
-      GROUP BY o.orderStatus
+      ${shipmentJoin}
+      WHERE 1=1 ${excludeClause}
+      GROUP BY orderStatus
     `).all(...params) as OrdersByStatusDto[];
 
     const byStatusStore = this.db.prepare(`
-      SELECT o.orderStatus, CAST(o.storeId AS INTEGER) AS storeId, COUNT(*) AS cnt
+      SELECT ${effectiveStatus} AS orderStatus, CAST(o.storeId AS INTEGER) AS storeId, COUNT(*) AS cnt
       FROM orders o
       LEFT JOIN order_local ol ON o.orderId = ol.orderId
-      WHERE NOT (o.orderStatus = 'awaiting_shipment' AND COALESCE(ol.external_shipped, 0) = 1)
-        AND NOT (o.orderStatus = 'awaiting_shipment' AND COALESCE(json_extract(o.raw, '$.externallyFulfilled'), 0) = 1)
-        AND NOT (
-          o.orderStatus = 'awaiting_shipment'
-          AND EXISTS (
-            SELECT 1 FROM shipments s
-            WHERE s.orderId = o.orderId AND s.voided = 0
-          )
-        )
-        ${excludeClause}
-      GROUP BY o.orderStatus, o.storeId
+      ${shipmentJoin}
+      WHERE 1=1 ${excludeClause}
+      GROUP BY orderStatus, o.storeId
       ORDER BY cnt DESC
     `).all(...params) as OrdersByStatusStoreDto[];
 

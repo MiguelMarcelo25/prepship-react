@@ -27,4 +27,8 @@ export class ClientsHttpHandler {
   handleSyncStores() {
     return this.services.syncStores();
   }
+
+  handleReattribute() {
+    return this.services.reattributeOrders();
+  }
 }

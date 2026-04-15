@@ -19,6 +19,7 @@ export function createClientRoutes(handler: ClientsHttpHandler): RouteDef[] {
     jsonRoute("GET", "/api/clients", async () => handler.handleList()),
     jsonRoute("POST", "/api/clients", async ({ readJson }) => handler.handleCreate(await readJson()), { getErrorStatus: getCreateErrorStatus }),
     jsonRoute("POST", "/api/clients/sync-stores", async () => handler.handleSyncStores(), { getErrorStatus }),
+    jsonRoute("POST", "/api/clients/reattribute", async () => handler.handleReattribute(), { getErrorStatus }),
     jsonRoute(
       "PUT",
       "/api/clients/:clientId(int)",

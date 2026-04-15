@@ -78,43 +78,54 @@ export class PgInitRepository implements InitRepository {
       : "";
     if (this.excludedStoreIds.length > 0) params.push(...this.excludedStoreIds);
 
-    // Postgres translation of SQLite logic:
-    // - status columns in pg are usually lowercase unless quoted
-    // - json_extract -> (raw::jsonb)->>'key'
+    // Use the same logic as the orders list query so counts match:
+    // - awaiting_shipment orders with external_shipped, externallyFulfilled,
+    //   or a label (non-voided shipment with cost) are moved to "shipped".
+    const shipmentJoin = `
+      LEFT JOIN (
+        WITH latest_ship AS (
+          SELECT orderid, MAX(shipmentid) AS shipmentid
+          FROM shipments WHERE voided = FALSE GROUP BY orderid
+        )
+        SELECT ls.orderid, (s.shipmentcost + COALESCE(s.othercost, 0)) AS label_cost
+        FROM latest_ship ls
+        JOIN shipments s ON s.shipmentid = ls.shipmentid
+      ) ship ON ship.orderid = o.orderid
+    `;
+
+    // Compute effective status: awaiting_shipment orders that have been
+    // externally shipped or have a label are counted as "shipped".
+    const effectiveStatus = `
+      CASE
+        WHEN o.orderstatus = 'awaiting_shipment'
+          AND (
+            COALESCE(ol.external_shipped, 0) = 1
+            OR COALESCE((o.raw::jsonb)->>'externallyFulfilled', 'false') IN ('true', '1')
+            OR ship.label_cost IS NOT NULL
+          )
+        THEN 'shipped'
+        ELSE o.orderstatus
+      END
+    `;
+
     const statusSql = `
-      SELECT o.orderstatus AS "orderStatus", COUNT(*)::int AS cnt
+      SELECT ${effectiveStatus} AS "orderStatus", COUNT(*)::int AS cnt
       FROM orders o
       LEFT JOIN order_local ol ON o.orderid = ol.orderid
-      WHERE NOT (o.orderstatus = 'awaiting_shipment' AND COALESCE(ol.external_shipped, 0) = 1)
-        AND NOT (o.orderstatus = 'awaiting_shipment' AND COALESCE((o.raw::jsonb)->>'externallyFulfilled', '0') = '1')
-        AND NOT (
-          o.orderstatus = 'awaiting_shipment'
-          AND EXISTS (
-            SELECT 1 FROM shipments s
-            WHERE s.orderid = o.orderid AND s.voided = FALSE
-          )
-        )
-        ${excludeClause}
-      GROUP BY o.orderstatus
+      ${shipmentJoin}
+      WHERE 1=1 ${excludeClause}
+      GROUP BY "orderStatus"
     `;
 
     const { rows: byStatus } = await this.pool.query(statusSql, params);
 
     const storeSql = `
-      SELECT o.orderstatus AS "orderStatus", o.storeid AS "storeId", COUNT(*)::int AS cnt
+      SELECT ${effectiveStatus} AS "orderStatus", o.storeid AS "storeId", COUNT(*)::int AS cnt
       FROM orders o
       LEFT JOIN order_local ol ON o.orderid = ol.orderid
-      WHERE NOT (o.orderstatus = 'awaiting_shipment' AND COALESCE(ol.external_shipped, 0) = 1)
-        AND NOT (o.orderstatus = 'awaiting_shipment' AND COALESCE((o.raw::jsonb)->>'externallyFulfilled', '0') = '1')
-        AND NOT (
-          o.orderstatus = 'awaiting_shipment'
-          AND EXISTS (
-            SELECT 1 FROM shipments s
-            WHERE s.orderid = o.orderid AND s.voided = FALSE
-          )
-        )
-        ${excludeClause}
-      GROUP BY o.orderstatus, o.storeid
+      ${shipmentJoin}
+      WHERE 1=1 ${excludeClause}
+      GROUP BY "orderStatus", o.storeid
       ORDER BY cnt DESC
     `;
 
