@@ -1512,7 +1512,21 @@ export default function OrdersView({
         setQueuePrintMessage(status.message)
 
         if (status.status === 'done') {
-          window.open(`/api/queue/print/download/${job.job_id}`, '_blank', 'noopener,noreferrer')
+          // Fetch the PDF as a blob with the auth header attached, then open
+          // a Blob URL in a new tab. window.open(`/api/...`) would 404 on
+          // Vercel (no /api proxy) and 401 on Render directly (no header).
+          const { blob, filename } = await apiClient.downloadQueuePrintJob(job.job_id)
+          const blobUrl = URL.createObjectURL(blob)
+          const link = document.createElement('a')
+          link.href = blobUrl
+          link.download = filename
+          link.rel = 'noopener noreferrer'
+          link.target = '_blank'
+          document.body.appendChild(link)
+          link.click()
+          link.remove()
+          // Revoke after a short delay so the new tab has time to load.
+          window.setTimeout(() => URL.revokeObjectURL(blobUrl), 60_000)
           done = true
         }
         if (status.status === 'error') {

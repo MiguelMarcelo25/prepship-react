@@ -1089,6 +1089,33 @@ class ApiClient {
   }
 
   /**
+   * GET /queue/print/download/:jobId
+   *
+   * Fetches the merged PDF as a blob *with* the X-App-Token header set, so it
+   * works on Vercel/Render where window.open() can't attach auth headers and
+   * relative /api paths don't reach the API at all.
+   */
+  async downloadQueuePrintJob(jobId: string): Promise<{ blob: Blob; filename: string }> {
+    const response = await fetch(`${this.baseUrl}/queue/print/download/${jobId}`, {
+      method: "GET",
+      headers: this.buildHeaders(),
+    });
+
+    if (!response.ok) {
+      throw new ApiError(
+        response.status,
+        response.statusText,
+        await this.parseErrorMessage(response),
+      );
+    }
+
+    return {
+      blob: await response.blob(),
+      filename: this.getDownloadFilename(response.headers.get("content-disposition"), `batch_print_${jobId}.pdf`),
+    };
+  }
+
+  /**
    * GET /products
    */
   async fetchProducts(query?: { clientId?: number }): Promise<ProductDefaultsDto[]> {
