@@ -37,6 +37,47 @@ interface SSShipmentSummary {
   voided: boolean;
 }
 
+export interface SyncWorkerStatus {
+  enabled: boolean;
+  running: boolean;
+  intervalSeconds: number;
+  lastCycleAt: number | null;
+  lastCycleElapsedMs: number;
+  lastCycleShipped: number;
+  lastCycleIngested: number;
+  lastCycleAccounts: number;
+  totalCyclesRun: number;
+  totalShippedAllTime: number;
+  totalIngestedAllTime: number;
+  lastError: string | null;
+  startedAt: number | null;
+}
+
+// Module-level registry so HTTP routes (built by bootstrap before main.ts
+// creates the worker) can still see the worker's live status without having
+// to pass it through the dependency chain.
+let currentWorker: OrderStatusSyncWorkerV2 | null = null;
+
+export function getSyncWorkerStatus(): SyncWorkerStatus {
+  return currentWorker
+    ? currentWorker.getStatus()
+    : {
+        enabled: false,
+        running: false,
+        intervalSeconds: 0,
+        lastCycleAt: null,
+        lastCycleElapsedMs: 0,
+        lastCycleShipped: 0,
+        lastCycleIngested: 0,
+        lastCycleAccounts: 0,
+        totalCyclesRun: 0,
+        totalShippedAllTime: 0,
+        totalIngestedAllTime: 0,
+        lastError: null,
+        startedAt: null,
+      };
+}
+
 export class OrderStatusSyncWorkerV2 {
   private readonly orderRepo: OrderRepository;
   private readonly clientRepo: ClientRepository;
@@ -48,6 +89,18 @@ export class OrderStatusSyncWorkerV2 {
   private readonly client: ShipStationClient;
   private running = false;
   private timer: ReturnType<typeof setInterval> | null = null;
+
+  // Live status counters — read via getStatus() / getSyncWorkerStatus().
+  private startedAt: number | null = null;
+  private lastCycleAt: number | null = null;
+  private lastCycleElapsedMs = 0;
+  private lastCycleShipped = 0;
+  private lastCycleIngested = 0;
+  private lastCycleAccounts = 0;
+  private totalCyclesRun = 0;
+  private totalShippedAllTime = 0;
+  private totalIngestedAllTime = 0;
+  private lastError: string | null = null;
 
   constructor(
     orderRepo: OrderRepository,
@@ -68,8 +121,28 @@ export class OrderStatusSyncWorkerV2 {
     this.client = getShipStationClient();
   }
 
+  getStatus(): SyncWorkerStatus {
+    return {
+      enabled: this.timer != null,
+      running: this.running,
+      intervalSeconds: this.intervalMs / 1000,
+      lastCycleAt: this.lastCycleAt,
+      lastCycleElapsedMs: this.lastCycleElapsedMs,
+      lastCycleShipped: this.lastCycleShipped,
+      lastCycleIngested: this.lastCycleIngested,
+      lastCycleAccounts: this.lastCycleAccounts,
+      totalCyclesRun: this.totalCyclesRun,
+      totalShippedAllTime: this.totalShippedAllTime,
+      totalIngestedAllTime: this.totalIngestedAllTime,
+      lastError: this.lastError,
+      startedAt: this.startedAt,
+    };
+  }
+
   start(): void {
     if (this.timer) return;
+    this.startedAt = Date.now();
+    currentWorker = this;
     console.log(`[sync-v2] Starting integrated sync worker (interval=${this.intervalMs / 1000}s)`);
     void this.runSync();
     this.timer = setInterval(() => void this.runSync(), this.intervalMs);
@@ -81,6 +154,7 @@ export class OrderStatusSyncWorkerV2 {
       clearInterval(this.timer);
       this.timer = null;
     }
+    if (currentWorker === this) currentWorker = null;
   }
 
   async runSync(): Promise<void> {
@@ -231,6 +305,18 @@ export class OrderStatusSyncWorkerV2 {
       const totalShipped = ordersToMarkShipped.length;
       const totalIngested = ordersToUpsert.length;
       const elapsed = Date.now() - cycleStart;
+
+      // Persist the live status so the UI can poll it.
+      this.lastCycleAt = Date.now();
+      this.lastCycleElapsedMs = elapsed;
+      this.lastCycleShipped = totalShipped;
+      this.lastCycleIngested = totalIngested;
+      this.lastCycleAccounts = perAccount.length;
+      this.totalCyclesRun += 1;
+      this.totalShippedAllTime += totalShipped;
+      this.totalIngestedAllTime += totalIngested;
+      this.lastError = null;
+
       // Log every cycle, even quiet ones, so there's a reliable heartbeat
       // in Render logs you can grep for. Previously we only logged when
       // orders changed, which made the worker look dead on idle projects.
@@ -238,7 +324,11 @@ export class OrderStatusSyncWorkerV2 {
         `[sync-v2] Cycle complete in ${elapsed}ms: ${totalShipped} shipped, ${totalIngested} ingested across ${perAccount.length} accounts`,
       );
     } catch (err) {
-      console.error(`[sync-v2] Cycle error: ${(err as Error).message}`);
+      const message = (err as Error).message;
+      this.lastError = message;
+      this.lastCycleAt = Date.now();
+      this.lastCycleElapsedMs = Date.now() - cycleStart;
+      console.error(`[sync-v2] Cycle error: ${message}`);
     } finally {
       this.running = false;
     }

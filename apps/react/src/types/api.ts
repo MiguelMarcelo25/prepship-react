@@ -538,6 +538,22 @@ export interface LegacySyncStatusDto {
   ratePrefetchRunning: boolean;
 }
 
+export interface SyncWorkerStatusDto {
+  enabled: boolean;
+  running: boolean;
+  intervalSeconds: number;
+  lastCycleAt: number | null;
+  lastCycleElapsedMs: number;
+  lastCycleShipped: number;
+  lastCycleIngested: number;
+  lastCycleAccounts: number;
+  totalCyclesRun: number;
+  totalShippedAllTime: number;
+  totalIngestedAllTime: number;
+  lastError: string | null;
+  startedAt: number | null;
+}
+
 export interface OrdersDailyStatsDto {
   window: {
     from: string;

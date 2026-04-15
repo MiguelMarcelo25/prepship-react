@@ -1,6 +1,7 @@
 import { useContext, useEffect, useMemo, useRef, useState } from 'react'
 import { ToastContext } from './contexts/ToastContext'
 import { apiClient } from './api/client'
+import type { SyncWorkerStatusDto } from './types/api'
 import { useInitStores } from './hooks'
 import Sidebar from './components/Sidebar/Sidebar'
 import OrdersView from './components/Views/OrdersView'
@@ -92,6 +93,7 @@ export default function Home() {
     error: null,
   })
   const lastSeenSyncRef = useRef<number>(0)
+  const [workerStatus, setWorkerStatus] = useState<SyncWorkerStatusDto | null>(null)
   const [zoomPct, setZoomPct] = useState(() => {
     if (typeof window === 'undefined') return 100
     const stored = Number.parseInt(window.localStorage.getItem('prepship_zoom') ?? '100', 10)
@@ -192,7 +194,58 @@ export default function Home() {
     }
   }, [displayView, toastContext])
 
+  // Poll the background [sync-v2] worker every 15s so the topbar can show
+  // its heartbeat (last cycle time, counts, errors). Separate from the
+  // legacy sync poller above — the legacy one tracks user-triggered syncs,
+  // this one tracks the always-on background worker.
+  useEffect(() => {
+    let active = true
+    const poll = async () => {
+      try {
+        const next = await apiClient.fetchSyncWorkerStatus()
+        if (!active) return
+        setWorkerStatus(next)
+      } catch {
+        // Silently ignore — the pill will just not update.
+      }
+    }
+    void poll()
+    const intervalId = window.setInterval(() => void poll(), 15000)
+    return () => {
+      active = false
+      window.clearInterval(intervalId)
+    }
+  }, [])
+
   const syncPill = useMemo(() => formatSyncPill(syncStatus), [syncStatus])
+
+  const workerPill = useMemo(() => {
+    if (!workerStatus || !workerStatus.enabled) {
+      return null
+    }
+    if (workerStatus.lastError) {
+      return { text: `⚠ Worker error`, title: workerStatus.lastError, color: 'var(--red, #dc2626)' }
+    }
+    if (workerStatus.running) {
+      return { text: '⟳ Worker syncing…', title: 'Sync cycle in progress', color: 'var(--ss-blue, #2563eb)' }
+    }
+    if (workerStatus.lastCycleAt == null) {
+      return { text: '⟳ Worker starting…', title: `Interval: ${workerStatus.intervalSeconds}s`, color: 'var(--text3, #6b7280)' }
+    }
+    const ageSec = Math.max(0, Math.round((Date.now() - workerStatus.lastCycleAt) / 1000))
+    const ageText = ageSec < 60 ? `${ageSec}s ago` : ageSec < 3600 ? `${Math.round(ageSec / 60)}m ago` : `${Math.round(ageSec / 3600)}h ago`
+    const countText = workerStatus.lastCycleShipped === 0 && workerStatus.lastCycleIngested === 0
+      ? 'idle'
+      : `${workerStatus.lastCycleShipped} shipped · ${workerStatus.lastCycleIngested} ingested`
+    return {
+      text: `⟳ Worker ${ageText}`,
+      title:
+        `Last cycle ${ageText} · ${workerStatus.lastCycleElapsedMs}ms · ${countText}\n` +
+        `Total cycles: ${workerStatus.totalCyclesRun} · all-time ${workerStatus.totalShippedAllTime} shipped / ${workerStatus.totalIngestedAllTime} ingested\n` +
+        `Interval: ${workerStatus.intervalSeconds}s`,
+      color: 'var(--text3, #6b7280)',
+    }
+  }, [workerStatus])
 
   return (
     <>
@@ -270,6 +323,23 @@ export default function Home() {
                   )}
                 </span>
               </div>
+              {workerPill ? (
+                <div
+                  id="workerPill"
+                  title={workerPill.title}
+                  style={{
+                    fontSize: 11,
+                    padding: '3px 9px',
+                    borderRadius: 999,
+                    background: 'var(--surface2, #f3f4f6)',
+                    color: workerPill.color,
+                    border: '1px solid var(--border, #e5e7eb)',
+                    whiteSpace: 'nowrap',
+                  }}
+                >
+                  {workerPill.text}
+                </div>
+              ) : null}
               <button
                 className="btn btn-ghost btn-sm"
                 id="btnSyncIncr"

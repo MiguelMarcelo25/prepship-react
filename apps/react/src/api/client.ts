@@ -19,6 +19,7 @@ import type {
   LocationDto,
   ShipmentSyncStatusDto,
   LegacySyncStatusDto,
+  SyncWorkerStatusDto,
   ProductDefaultsDto,
   ReceiveInventoryInput,
   ReceiveInventoryResultDto,
@@ -724,6 +725,19 @@ class ApiClient {
    */
   async fetchLegacySyncStatus(): Promise<LegacySyncStatusDto> {
     return this.request<LegacySyncStatusDto>("/sync/status", {
+      method: "GET",
+    });
+  }
+
+  /**
+   * GET /sync/worker-status
+   *
+   * Live snapshot of the integrated [sync-v2] background worker — last cycle
+   * time, duration, counts, error. Returns { enabled: false, ... } if the
+   * worker isn't running on this instance.
+   */
+  async fetchSyncWorkerStatus(): Promise<SyncWorkerStatusDto> {
+    return this.request<SyncWorkerStatusDto>("/sync/worker-status", {
       method: "GET",
     });
   }
