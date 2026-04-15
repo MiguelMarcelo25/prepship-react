@@ -231,9 +231,12 @@ export class OrderStatusSyncWorkerV2 {
       const totalShipped = ordersToMarkShipped.length;
       const totalIngested = ordersToUpsert.length;
       const elapsed = Date.now() - cycleStart;
-      if (totalShipped > 0 || totalIngested > 0) {
-        console.log(`[sync-v2] Cycle complete in ${elapsed}ms: ${totalShipped} shipped, ${totalIngested} ingested across ${perAccount.length} accounts`);
-      }
+      // Log every cycle, even quiet ones, so there's a reliable heartbeat
+      // in Render logs you can grep for. Previously we only logged when
+      // orders changed, which made the worker look dead on idle projects.
+      console.log(
+        `[sync-v2] Cycle complete in ${elapsed}ms: ${totalShipped} shipped, ${totalIngested} ingested across ${perAccount.length} accounts`,
+      );
     } catch (err) {
       console.error(`[sync-v2] Cycle error: ${(err as Error).message}`);
     } finally {
