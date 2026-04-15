@@ -47,8 +47,11 @@ export default function Sidebar({
   }
 
   const handleSelectStore = (status: SidebarOrderStatus, storeId: number) => {
-    onSelectStore?.(storeId)
+    // Order matters: onSelectStatus resets activeStore to null inside Home, so
+    // we need to set the status FIRST and then the store, otherwise the status
+    // change wipes out the store selection in the same React batch.
     onSelectStatus(status)
+    onSelectStore?.(storeId)
     onCloseMobileMenu?.()
   }
 
