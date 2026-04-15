@@ -225,9 +225,13 @@ export class QueueServices {
         let labelError: string | null = null;
 
         try {
-          // Resolve relative URLs (e.g. /api/labels/mock/:id) against local API
+          // Resolve relative URLs (e.g. /api/labels/mock/:id) against local API.
+          // On Render we listen on PORT (default 10000); locally we use
+          // API_PORT (default 4010). Check PORT first so Render doesn't try
+          // to hit a non-existent 4010.
+          const apiPort = process.env.PORT ?? process.env.API_PORT ?? '4010';
           const labelFetchUrl = entry.labelUrl.startsWith('/')
-            ? `http://127.0.0.1:${process.env.API_PORT ?? '4010'}${entry.labelUrl}`
+            ? `http://127.0.0.1:${apiPort}${entry.labelUrl}`
             : entry.labelUrl;
           const response = await fetch(labelFetchUrl, {
             headers: {
