@@ -35,4 +35,14 @@ export interface OrderRepository {
   upsertOrder(order: Partial<OrderRecord>): Promise<void>;
   markStatus(orderId: number, status: string): Promise<void>;
   getByOrderNumber(orderNumber: string): Promise<OrderRecord | null>;
+
+  // Bulk variants used by the sync worker to avoid N round trips to Supabase.
+  // Non-pg implementations can loop over the single-row versions.
+  existingOrderIds(orderIds: number[]): Promise<Set<number>>;
+  findByOrderNumbers(orderNumbers: string[]): Promise<Map<string, OrderRecord>>;
+  upsertOrdersBatch(orders: Partial<OrderRecord>[]): Promise<void>;
+  markStatusBatch(orderIds: number[], status: string): Promise<void>;
+  updateExternalShippedBatch(
+    updates: Array<{ orderId: number; externalShipped: boolean; source?: string | null }>,
+  ): Promise<void>;
 }

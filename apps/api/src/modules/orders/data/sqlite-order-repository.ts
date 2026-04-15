@@ -560,9 +560,49 @@ export class SqliteOrderRepository implements OrderRepository {
     `);
     const row = statement.get(orderNumber) as Record<string, unknown> | undefined;
     if (!row) return null;
-    
+
     // Minimal mapping needed for sync worker
     return this.mapRow(row);
+  }
+
+  // Bulk variants — sqlite is a fallback datastore so we just loop over the
+  // single-row versions. The real performance lives in PgOrderRepository.
+  async existingOrderIds(orderIds: number[]): Promise<Set<number>> {
+    const found = new Set<number>();
+    for (const id of orderIds) {
+      const exists = await this.getById(id);
+      if (exists) found.add(id);
+    }
+    return found;
+  }
+
+  async findByOrderNumbers(orderNumbers: string[]): Promise<Map<string, OrderRecord>> {
+    const map = new Map<string, OrderRecord>();
+    for (const num of orderNumbers) {
+      const record = await this.getByOrderNumber(num);
+      if (record?.orderNumber) map.set(record.orderNumber, record);
+    }
+    return map;
+  }
+
+  async upsertOrdersBatch(orders: Partial<OrderRecord>[]): Promise<void> {
+    for (const order of orders) {
+      await this.upsertOrder(order);
+    }
+  }
+
+  async markStatusBatch(orderIds: number[], status: string): Promise<void> {
+    for (const id of orderIds) {
+      await this.markStatus(id, status);
+    }
+  }
+
+  async updateExternalShippedBatch(
+    updates: Array<{ orderId: number; externalShipped: boolean; source?: string | null }>,
+  ): Promise<void> {
+    for (const u of updates) {
+      await this.updateExternalShipped(u.orderId, u.externalShipped, u.source ?? null);
+    }
   }
 
   private hasTable(name: string): boolean {

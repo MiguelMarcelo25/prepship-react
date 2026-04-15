@@ -594,6 +594,127 @@ export class PgOrderRepository implements OrderRepository {
     return this.mapRow(rows[0]!);
   }
 
+  // ─── Bulk sync-path methods ──────────────────────────────────────────
+  async existingOrderIds(orderIds: number[]): Promise<Set<number>> {
+    if (orderIds.length === 0) return new Set();
+    const { rows } = await this.pool.query(
+      `SELECT orderid FROM orders WHERE orderid = ANY($1::bigint[])`,
+      [orderIds],
+    );
+    return new Set((rows as Array<{ orderid: number | string }>).map((r) => Number(r.orderid)));
+  }
+
+  async findByOrderNumbers(orderNumbers: string[]): Promise<Map<string, OrderRecord>> {
+    if (orderNumbers.length === 0) return new Map();
+    const { rows } = await this.pool.query(
+      `SELECT o.*, c.name AS clientname
+       FROM orders o
+       LEFT JOIN clients c ON c.clientid = o.clientid
+       WHERE o.ordernumber = ANY($1::text[])`,
+      [orderNumbers],
+    );
+    const map = new Map<string, OrderRecord>();
+    for (const row of rows) {
+      const record = this.mapRow(row);
+      if (record.orderNumber) map.set(record.orderNumber, record);
+    }
+    return map;
+  }
+
+  async upsertOrdersBatch(orders: Partial<OrderRecord>[]): Promise<void> {
+    if (orders.length === 0) return;
+    const now = Date.now();
+    const cols = 19;
+    const values: unknown[] = [];
+    const placeholders: string[] = [];
+    orders.forEach((order, i) => {
+      const base = i * cols;
+      placeholders.push(
+        `($${base + 1},$${base + 2},$${base + 3},$${base + 4},$${base + 5},$${base + 6},$${base + 7},$${base + 8},$${base + 9},$${base + 10},$${base + 11},$${base + 12},$${base + 13},$${base + 14},$${base + 15},$${base + 16},$${base + 17},$${base + 18},$${base + 19})`,
+      );
+      values.push(
+        order.orderId,
+        order.orderNumber,
+        order.orderStatus,
+        order.orderDate,
+        order.storeId,
+        order.customerEmail ?? null,
+        order.shipToName ?? null,
+        order.shipToCity ?? null,
+        order.shipToState ?? null,
+        order.shipToPostalCode ?? null,
+        order.carrierCode ?? null,
+        order.serviceCode ?? null,
+        order.weightValue ?? null,
+        order.orderTotal ?? 0,
+        order.shippingAmount ?? 0,
+        order.items ?? "[]",
+        order.raw ?? "{}",
+        now,
+        order.clientId,
+      );
+    });
+    const sql = `
+      INSERT INTO orders (
+        orderid, ordernumber, orderstatus, orderdate, storeid, customeremail,
+        shiptoname, shiptocity, shiptostate, shiptopostalcode, carriercode, servicecode,
+        weightvalue, ordertotal, shippingamount, items, raw, updatedat, clientid
+      ) VALUES ${placeholders.join(", ")}
+      ON CONFLICT(orderid) DO UPDATE SET
+        orderstatus = EXCLUDED.orderstatus,
+        updatedat = EXCLUDED.updatedat
+    `;
+    await this.pool.query(sql, values);
+  }
+
+  async markStatusBatch(orderIds: number[], status: string): Promise<void> {
+    if (orderIds.length === 0) return;
+    await this.pool.query(
+      `UPDATE orders SET orderstatus = $1, updatedat = $2 WHERE orderid = ANY($3::bigint[])`,
+      [status, Date.now(), orderIds],
+    );
+  }
+
+  async updateExternalShippedBatch(
+    updates: Array<{ orderId: number; externalShipped: boolean; source?: string | null }>,
+  ): Promise<void> {
+    if (updates.length === 0) return;
+    // Group by (externalShipped, source) so we can issue one UPDATE per unique
+    // (value, source) pair instead of per-row. Typical sync cycle has 2 groups
+    // at most (true/external_sync, false/null).
+    const groups = new Map<string, { flag: boolean; source: string | null; ids: number[] }>();
+    for (const u of updates) {
+      const source = u.source ?? null;
+      const key = `${u.externalShipped}|${source ?? ""}`;
+      if (!groups.has(key)) {
+        groups.set(key, { flag: u.externalShipped, source, ids: [] });
+      }
+      groups.get(key)!.ids.push(u.orderId);
+    }
+    for (const { flag, source, ids } of groups.values()) {
+      if (flag) {
+        await this.pool.query(
+          `INSERT INTO order_local (orderid, external_shipped, external_shipped_source, updatedat)
+           SELECT id, 1, $1, $2 FROM unnest($3::bigint[]) AS id
+           ON CONFLICT (orderid) DO UPDATE SET
+             external_shipped = 1,
+             external_shipped_source = COALESCE(EXCLUDED.external_shipped_source, order_local.external_shipped_source),
+             updatedat = EXCLUDED.updatedat`,
+          [source, Date.now(), ids],
+        );
+      } else {
+        await this.pool.query(
+          `INSERT INTO order_local (orderid, external_shipped, updatedat)
+           SELECT id, 0, $1 FROM unnest($2::bigint[]) AS id
+           ON CONFLICT (orderid) DO UPDATE SET
+             external_shipped = 0,
+             updatedat = EXCLUDED.updatedat`,
+          [Date.now(), ids],
+        );
+      }
+    }
+  }
+
   private mapRow(row: Record<string, unknown>): OrderRecord {
     return {
       orderId: Number(row.orderid),
