@@ -86,6 +86,7 @@ export default function Home() {
     status: 'idle',
     mode: 'idle',
     page: 0,
+    total: 0,
     lastSync: null,
     count: 0,
     error: null,
