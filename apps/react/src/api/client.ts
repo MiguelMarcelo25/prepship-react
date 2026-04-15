@@ -1123,6 +1123,49 @@ class ApiClient {
   }
 
   /**
+   * Opens a labelUrl in a new tab. Handles two cases:
+   *
+   *  1. Absolute URL (e.g. https://api.shipstation.com/v2/downloads/.../label.pdf)
+   *     → plain window.open. ShipStation's URLs are public (signed) so no auth
+   *     header is needed.
+   *
+   *  2. Relative URL that points at our own API (e.g. /api/labels/mock/-123)
+   *     → fetch with X-App-Token headers, convert to a blob, then window.open
+   *     a blob: URL. A plain window.open would hit Vercel's static hosting
+   *     (404) or Render's auth middleware (401).
+   *
+   * Always triggered from a user click so popup blockers treat it as allowed.
+   */
+  async openLabel(labelUrl: string): Promise<void> {
+    if (!labelUrl) return;
+
+    if (/^https?:\/\//i.test(labelUrl)) {
+      window.open(labelUrl, "_blank", "noopener,noreferrer");
+      return;
+    }
+
+    // Relative URL — fetch as authenticated blob and open a blob: URL.
+    // Assume it starts with /api/... which our baseUrl already covers, so
+    // strip the leading /api prefix before appending to baseUrl.
+    const trimmed = labelUrl.replace(/^\/api/, "");
+    const response = await fetch(`${this.baseUrl}${trimmed}`, {
+      method: "GET",
+      headers: this.buildHeaders(),
+    });
+    if (!response.ok) {
+      throw new ApiError(
+        response.status,
+        response.statusText,
+        await this.parseErrorMessage(response),
+      );
+    }
+    const blob = await response.blob();
+    const blobUrl = URL.createObjectURL(blob);
+    window.open(blobUrl, "_blank", "noopener,noreferrer");
+    window.setTimeout(() => URL.revokeObjectURL(blobUrl), 60_000);
+  }
+
+  /**
    * GET /queue/print/download/:jobId
    *
    * Fetches the merged PDF as a blob *with* the X-App-Token header set, so it

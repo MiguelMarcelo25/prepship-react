@@ -1321,7 +1321,11 @@ export default function OrdersView({
           'success',
         )
       } else if (response.labelUrl) {
-        window.open(response.labelUrl, '_blank', 'noopener,noreferrer')
+        try {
+          await apiClient.openLabel(response.labelUrl)
+        } catch (error) {
+          showToast(error instanceof Error ? error.message : 'Failed to open label', 'error')
+        }
         showToast(mode === 'test' ? `🧪 Test label created${response.trackingNumber ? `: ${response.trackingNumber}` : ''}` : `✅ Label created${response.trackingNumber ? `: ${response.trackingNumber}` : ''}`, 'success')
       } else {
         showToast('Label created but no PDF returned', 'info')
@@ -1407,7 +1411,7 @@ export default function OrdersView({
 
     try {
       const data = await apiClient.retrieveLabel(panelOrder.orderId)
-      window.open(data.labelUrl, '_blank', 'noopener,noreferrer')
+      await apiClient.openLabel(data.labelUrl)
       showToast(`📄 Label opened for ${data.trackingNumber || panelOrder.orderNumber || panelOrder.orderId}`)
     } catch (error) {
       showToast(error instanceof Error ? error.message : 'Failed to retrieve label', 'error')
@@ -1588,7 +1592,11 @@ export default function OrdersView({
           await apiClient.addToQueue(buildQueueAddPayload(order, response.labelUrl))
           queuedItems.push(...getActiveItems(order, orderDetailsById.get(order.orderId) ?? null))
         } else if (response.labelUrl) {
-          window.open(response.labelUrl, '_blank', 'noopener,noreferrer')
+          try {
+            await apiClient.openLabel(response.labelUrl)
+          } catch (openError) {
+            console.warn('Failed to open label:', openError)
+          }
         }
         created += 1
       } catch {
