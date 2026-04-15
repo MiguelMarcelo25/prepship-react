@@ -78,6 +78,7 @@ export default function Home() {
     status: 'idle' | 'syncing' | 'done' | 'error'
     mode: 'idle' | 'incremental' | 'full'
     page: number
+    total: number
     lastSync: number | null
     count: number
     error: string | null
@@ -218,7 +219,13 @@ export default function Home() {
       />
 
       <div className="main bg-bg-base text-text-primary">
-        <div className="topbar">
+        <div className="topbar relative">
+          {syncStatus.status === 'syncing' && syncStatus.total > 0 && (
+            <div 
+              className="absolute top-0 left-0 h-1 bg-indigo-600 transition-all duration-300 z-50" 
+              style={{ width: `${Math.min(100, (syncStatus.page / syncStatus.total) * 100)}%` }} 
+            />
+          )}
           <button
             id="mobileMenuBtn"
             type="button"
@@ -253,7 +260,14 @@ export default function Home() {
             <div className="topbar-right" id="topbarActions">
               <div className={syncPill.className} id="syncPill">
                 <span className="sync-dot" />
-                <span id="syncText">{syncPill.text}</span>
+                <span id="syncText">
+                  {syncPill.text}
+                  {syncStatus.status === 'syncing' && syncStatus.total > 0 && (
+                    <span className="ml-1.5 opacity-70">
+                      ({syncStatus.page}/{syncStatus.total})
+                    </span>
+                  )}
+                </span>
               </div>
               <button
                 className="btn btn-ghost btn-sm"

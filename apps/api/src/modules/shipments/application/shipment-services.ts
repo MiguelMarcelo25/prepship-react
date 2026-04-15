@@ -27,6 +27,7 @@ export class ShipmentServices {
     status: "idle",
     lastSync: null,
     count: 0,
+    total: 0,
     error: null,
     page: 0,
     mode: "idle",
@@ -66,6 +67,7 @@ export class ShipmentServices {
         status: "syncing",
         error: null,
         page: 0,
+        total: 0,
         mode,
       };
       void this.runSync(mode).finally(() => {
@@ -116,94 +118,84 @@ export class ShipmentServices {
   private async runSync(mode: "incremental" | "full"): Promise<void> {
     const accounts = await this.buildSyncAccounts();
     const lastSync = await this.repository.getLastShipmentSync();
-    const createdAtStart = lastSync ? new Date(lastSync - 60_000).toISOString() : undefined;
+    
+    // Accuracy fix: use a larger overlap (5 minutes) for incremental syncs 
+    // to catch any edge cases where ShipStation hasn't updated the modify date yet.
+    const createdAtStart = lastSync ? new Date(lastSync - 300_000).toISOString() : undefined;
     const updatedAt = Date.now();
     let totalProcessed = 0;
+    let totalRecords = 0;
 
     try {
-      for (const account of accounts) {
+      // Process accounts in parallel for faster cross-account sync
+      await Promise.all(accounts.map(async (account) => {
         const credentials = {
           apiKey: account.v1ApiKey as string,
           apiSecret: account.v1ApiSecret as string,
         };
+
         const carrierLookup = new Map<string, number>();
-        if (account.v2ApiKey) {
+
+        // Start carrier lookup and shipment fetch in parallel tasks
+        const carrierTask = (async () => {
+          if (!account.v2ApiKey) return;
           let page = 1;
           while (true) {
             const rows = await this.gateway.listShipmentsV2(account.v2ApiKey, page, createdAtStart);
             if (rows.length === 0) break;
             for (const row of rows) {
-              if (!row.orderNumber || !row.carrierId) continue;
-              const numeric = Number.parseInt(row.carrierId.replace(/^se-/, ""), 10);
-              if (Number.isFinite(numeric)) carrierLookup.set(row.orderNumber, numeric);
+              if (row.orderNumber && row.carrierId) {
+                const numeric = Number.parseInt(row.carrierId.replace(/^se-/, ""), 10);
+                if (Number.isFinite(numeric)) carrierLookup.set(row.orderNumber, numeric);
+              }
             }
             if (rows.length < 500) break;
             page += 1;
           }
-        }
+        })();
 
-        let page = 1;
-        while (true) {
+        const shipmentTask = (async () => {
           const params = new URLSearchParams({
             pageSize: "500",
-            page: String(page),
+            page: "1",
             sortBy: "CreateDate",
             sortDir: "DESC",
           });
           if (createdAtStart) {
             params.set("modifyDateStart", createdAtStart.replace("T", " ").replace(/\.\d{3}Z$/, ""));
           }
-          const result = await this.gateway.listShipments(credentials, params);
-          if (result.shipments.length === 0) break;
 
-          const normalized: ShipmentSyncRecord[] = [];
-          for (const shipment of result.shipments) {
-            let orderId = shipment.orderId;
-            if (shipment.orderNumber) {
-              const resolved = await this.repository.resolveOrderIdByOrderNumber(shipment.orderNumber);
-              if (resolved) orderId = resolved;
-            }
-            if (!(await this.repository.orderExists(orderId))) continue;
-            const clientId = (await this.repository.getOrderClientId(orderId)) ?? account.clientId;
-            normalized.push({
-              shipmentId: shipment.shipmentId,
-              orderId,
-              orderNumber: shipment.orderNumber,
-              shipmentCost: shipment.shipmentCost,
-              otherCost: shipment.otherCost,
-              carrierCode: shipment.carrierCode,
-              serviceCode: shipment.serviceCode,
-              trackingNumber: shipment.trackingNumber,
-              shipDate: shipment.shipDate,
-              voided: shipment.voided,
-              providerAccountId: shipment.orderNumber ? carrierLookup.get(shipment.orderNumber) ?? null : null,
-              createDate: shipment.createDate,
-              weightOz: shipment.weightOz,
-              dimsLength: shipment.dimsLength,
-              dimsWidth: shipment.dimsWidth,
-              dimsHeight: shipment.dimsHeight,
-              updatedAt,
-              clientId,
-              source: "shipstation",
-            });
+          const firstPage = await this.gateway.listShipments(credentials, params);
+          if (firstPage.shipments.length === 0) return;
+
+          totalRecords += firstPage.total;
+          this.legacySyncStatus = {
+            ...this.legacySyncStatus,
+            total: totalRecords,
+          };
+
+          // Process first page
+          await this.processShipmentBatch(firstPage.shipments, account, carrierLookup, updatedAt, mode);
+          totalProcessed += firstPage.shipments.length;
+
+          // Fetch remaining pages in parallel batches (Concurrency: 3)
+          const remainingPages = Array.from({ length: firstPage.pages - 1 }, (_, i) => i + 2);
+          const CONCURRENCY = 3;
+          
+          for (let i = 0; i < remainingPages.length; i += CONCURRENCY) {
+            const batch = remainingPages.slice(i, i + CONCURRENCY);
+            await Promise.all(batch.map(async (pageIdx) => {
+              const p = new URLSearchParams(params);
+              p.set("page", String(pageIdx));
+              const res = await this.gateway.listShipments(credentials, p);
+              await this.processShipmentBatch(res.shipments, account, carrierLookup, updatedAt, mode);
+              totalProcessed += res.shipments.length;
+            }));
           }
+        })();
 
-          if (normalized.length > 0) {
-            await this.repository.upsertShipmentBatch(normalized);
-            await this.repository.backfillOrderLocalFromShipments(normalized);
-            totalProcessed += normalized.length;
-            this.legacySyncStatus = {
-              ...this.legacySyncStatus,
-              status: "syncing",
-              mode,
-              page: totalProcessed,
-            };
-          }
-
-          if (page >= result.pages) break;
-          page += 1;
-        }
-      }
+        await Promise.all([carrierTask, shipmentTask]);
+      }));
 
       const completedAt = Date.now();
       await this.repository.setLastShipmentSync(completedAt);
@@ -214,6 +206,7 @@ export class ShipmentServices {
         count: totalProcessed,
         error: null,
         page: 0,
+        total: 0,
         mode,
       };
     } catch (error) {
@@ -225,6 +218,59 @@ export class ShipmentServices {
         mode,
       };
       throw error;
+    }
+  }
+
+  private async processShipmentBatch(
+    shipments: any[], 
+    account: ShipmentSyncAccountRecord, 
+    carrierLookup: Map<string, number>, 
+    updatedAt: number,
+    mode: string
+  ) {
+    const normalized: any[] = [];
+    for (const shipment of shipments) {
+      let orderId = shipment.orderId;
+      if (shipment.orderNumber) {
+        const resolved = await this.repository.resolveOrderIdByOrderNumber(shipment.orderNumber);
+        if (resolved) orderId = resolved;
+      }
+      
+      if (!(await this.repository.orderExists(orderId))) continue;
+      const clientId = (await this.repository.getOrderClientId(orderId)) ?? account.clientId;
+      
+      normalized.push({
+        shipmentId: shipment.shipmentId,
+        orderId,
+        orderNumber: shipment.orderNumber,
+        shipmentCost: shipment.shipmentCost,
+        otherCost: shipment.otherCost,
+        carrierCode: shipment.carrierCode,
+        serviceCode: shipment.serviceCode,
+        trackingNumber: shipment.trackingNumber,
+        shipDate: shipment.shipDate,
+        voided: shipment.voided,
+        providerAccountId: shipment.orderNumber ? carrierLookup.get(shipment.orderNumber) ?? null : null,
+        createDate: shipment.createDate,
+        weightOz: shipment.weightOz,
+        dimsLength: shipment.dimsLength,
+        dimsWidth: shipment.dimsWidth,
+        dimsHeight: shipment.dimsHeight,
+        updatedAt,
+        clientId,
+        source: "shipstation",
+      });
+    }
+
+    if (normalized.length > 0) {
+      await this.repository.upsertShipmentBatch(normalized);
+      await this.repository.backfillOrderLocalFromShipments(normalized);
+      this.legacySyncStatus = {
+        ...this.legacySyncStatus,
+        status: "syncing",
+        mode: mode as any,
+        page: (this.legacySyncStatus.page || 0) + normalized.length,
+      };
     }
   }
 }

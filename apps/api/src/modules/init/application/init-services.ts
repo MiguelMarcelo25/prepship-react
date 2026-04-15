@@ -26,6 +26,9 @@ export class InitServices {
   }
 
   async getInitData(): Promise<InitDataDto> {
+    // Ensure database is optimized
+    await this.repository.setupPerformanceIndexes();
+
     let remoteStores: InitStoreDto[] = [];
     try {
       remoteStores = await this.metadataProvider.listStores();

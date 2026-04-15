@@ -16,6 +16,19 @@ export class PgInitRepository implements InitRepository {
     this.excludedStoreIds = excludedStoreIds;
   }
 
+  async setupPerformanceIndexes(): Promise<void> {
+    console.log("[db] verification started: creating performance indexes");
+    await this.pool.query(`
+      CREATE INDEX IF NOT EXISTS idx_orders_ordernumber ON orders (ordernumber);
+      CREATE INDEX IF NOT EXISTS idx_shipments_orderid ON shipments (orderid);
+      CREATE INDEX IF NOT EXISTS idx_order_local_orderid ON order_local (orderid);
+      CREATE INDEX IF NOT EXISTS idx_shipments_shipmentid ON shipments (shipmentid);
+      CREATE INDEX IF NOT EXISTS idx_shipments_voided ON shipments (voided);
+      CREATE INDEX IF NOT EXISTS idx_shipments_clientid ON shipments (clientid);
+    `);
+    console.log("[db] verification complete: indexes verified");
+  }
+
   async listLocalClientStores(): Promise<InitStoreDto[]> {
     const { rows } = await this.pool.query(`
       SELECT DISTINCT name, storeids

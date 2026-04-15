@@ -19,6 +19,7 @@ export interface LegacySyncStatusDto {
   count: number;
   error: string | null;
   page: number;
+  total: number;
   mode: "idle" | "incremental" | "full";
   ratesCached: number;
   ratePrefetchRunning: boolean;
