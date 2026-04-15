@@ -60,22 +60,26 @@ Pairs with [ARCHITECTURE.md](ARCHITECTURE.md), [RUNBOOK.md](RUNBOOK.md), and [TE
 | Orders | 1 | **Postgres (Supabase)** ✅ |
 | Inventory | 2 | **Postgres (Supabase)** ✅ |
 | Packages | 2 | **Postgres (Supabase)** ✅ |
+| Init | 2 | **Postgres (Supabase)** ✅ |
+| Manifests | 2 | **Postgres (Supabase)** ✅ |
+| Analysis | 2 | **Postgres (Supabase)** ✅ |
+| Queue | 2 | **Postgres (Supabase)** ✅ |
 | Billing | 2 | SQLite fallback (empty on Render) |
 | Labels | 2 | SQLite fallback (empty on Render) |
 | Rates | 2 | SQLite fallback (calls ShipStation live) |
-| Queue | 2 | SQLite fallback (empty on Render) |
-| Analysis | 2 | SQLite fallback (empty on Render) |
-| Manifests | 2 | SQLite fallback (empty on Render) |
-| Init | 2 | SQLite fallback (calls ShipStation live) |
 | Products | 2 | SQLite fallback (empty on Render) |
 
-**7 of 15 modules ported.** Phase 2 underway — Inventory and Packages done, 8 remaining.
+**11 of 15 modules ported.** Phase 2 past the midpoint — 4 modules remaining (Billing, Labels, Rates, Products).
 
 ### Phase 2 progress notes
 
 - **Inventory:** fully ported to `PgInventoryRepository`. Schema added to `scripts/init-postgres.cjs` (`inventory_skus`, `inventory_ledger`, `parent_skus`, `packages`, `products` + indexes). Required converting the repository interface + all consumers (`SqliteInventoryRepository`, `InventoryServices`, `InventoryHttpHandler`) to `async` because pg has no sync mode — this is the reusable pattern every remaining Phase 2 module follows. Verified end-to-end against live Supabase; populated via `POST /api/inventory/populate` which registered 192 SKUs from the existing orders (155 DR PREPPER + 37 KFG).
 - **Packages:** fully ported to `PgPackageRepository`. Added `package_ledger` to `scripts/init-postgres.cjs` (the `packages` table was already added with the inventory schema because inventory's list query JOINs it). Same async conversion pattern as Inventory. Verified end-to-end: `POST /api/packages/sync` fetched 56 carrier packages from ShipStation (stamps_com, ups, fedex) and wrote them to Supabase. Note: the Package Library UI panel only shows `source: 'custom'` packages, so carrier-synced packages don't appear there — they're used by the shipping flow's package picker instead.
-- **Remaining Phase 2 modules** (Billing, Labels, Rates, Queue, Analysis, Manifests, Init, Products): not started. Each follows the Inventory/Packages pattern — schema block in `init-postgres.cjs`, new `pg-*-repository.ts`, async conversion of the module's interface + services + handler, wire in `postgres-datastore.ts`.
+- **Init:** `PgInitRepository` was already implemented (4 methods) and wired in `postgres-datastore.ts` — the CHANGES.md status row was just stale.
+- **Manifests:** ported to `PgManifestRepository`. Only one query (shipments + orders JOIN for CSV export). No new tables needed — reuses Phase 1 shipments + orders. Verified end-to-end: CSV export of real shipments works against Supabase.
+- **Analysis:** ported to `PgAnalysisRepository`. Translated SQLite `json_each`/`json_extract` to Postgres `jsonb_array_elements` + `->>` for the daily-sales query, and `substr(date, 1, 10)` to `substring(date, 1, 10)`. Verified end-to-end: `GET /api/analysis/skus` returns full SKU breakdown for 1,272 orders across DR PREPPER + KFG.
+- **Queue:** ported to `PgQueueRepository`. Added `print_queue_orders` table + `print_queue_client_status_idx` to `scripts/init-postgres.cjs`. Used `ON CONFLICT (order_id, client_id) DO UPDATE SET` for the upsert. Had to update `queue-routes.ts` + `manifests-routes.ts` + `package-routes.ts` to `await` handler calls in routes using `route()` directly (routes using `jsonRoute()` already awaited internally).
+- **Remaining Phase 2 modules** (Billing, Labels, Rates, Products): not started. Each follows the same pattern — schema block in `init-postgres.cjs`, new `pg-*-repository.ts`, async conversion of the module's interface + services + handler, wire in `postgres-datastore.ts`.
 
 ---
 

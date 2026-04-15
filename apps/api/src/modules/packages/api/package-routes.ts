@@ -69,8 +69,8 @@ export function createPackageRoutes(handler: PackagesHttpHandler): RouteDef[] {
       },
       { getErrorStatus: inputErrorStatusWithMessages(["reorderLevel must be a number"]) },
     ),
-    route("GET", "/api/packages/:packageId(int)", ({ params }) => {
-      const payload = handler.handleGetById(parsePackageId(params.packageId ?? "0"));
+    route("GET", "/api/packages/:packageId(int)", async ({ params }) => {
+      const payload = await handler.handleGetById(parsePackageId(params.packageId ?? "0"));
       if (!payload) {
         return jsonResponse(404, { error: "Package not found" });
       }

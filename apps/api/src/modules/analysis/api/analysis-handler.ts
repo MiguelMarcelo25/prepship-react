@@ -11,11 +11,11 @@ export class AnalysisHttpHandler {
     this.services = services;
   }
 
-  handleSkus(url: URL) {
+  async handleSkus(url: URL) {
     return this.services.getSkuAnalysis(parseAnalysisSkuQuery(url));
   }
 
-  handleDailySales(url: URL) {
+  async handleDailySales(url: URL) {
     return this.services.getDailySales(parseAnalysisDailySalesQuery(url));
   }
 }

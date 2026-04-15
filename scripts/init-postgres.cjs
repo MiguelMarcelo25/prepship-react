@@ -282,6 +282,27 @@ if (!connectionString) {
     );
 
     CREATE INDEX IF NOT EXISTS package_ledger_package_idx ON package_ledger(packageid);
+
+    CREATE TABLE IF NOT EXISTS print_queue_orders (
+      id TEXT PRIMARY KEY,
+      client_id INTEGER NOT NULL,
+      order_id TEXT NOT NULL,
+      order_number TEXT,
+      label_url TEXT NOT NULL,
+      sku_group_id TEXT NOT NULL,
+      primary_sku TEXT,
+      item_description TEXT,
+      order_qty INTEGER DEFAULT 1,
+      multi_sku_data TEXT,
+      status TEXT NOT NULL DEFAULT 'queued',
+      print_count INTEGER NOT NULL DEFAULT 0,
+      last_printed_at BIGINT,
+      queued_at BIGINT NOT NULL,
+      created_at BIGINT NOT NULL,
+      UNIQUE (order_id, client_id)
+    );
+
+    CREATE INDEX IF NOT EXISTS print_queue_client_status_idx ON print_queue_orders(client_id, status);
   `);
   console.log('✓ phase-2 inventory tables ready');
 
