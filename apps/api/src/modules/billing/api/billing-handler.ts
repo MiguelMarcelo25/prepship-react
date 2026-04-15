@@ -13,39 +13,39 @@ export class BillingHttpHandler {
     this.services = services;
   }
 
-  handleConfig() {
+  async handleConfig() {
     return this.services.getConfig();
   }
 
-  handleSummary(url: URL) {
+  async handleSummary(url: URL) {
     return this.services.getSummary(parseBillingSummaryQuery(url));
   }
 
-  handleDetails(url: URL) {
+  async handleDetails(url: URL) {
     return this.services.getDetails(parseBillingDetailsQuery(url));
   }
 
-  handlePackagePrices(url: URL) {
+  async handlePackagePrices(url: URL) {
     return this.services.getPackagePrices(parseBillingPackagePricesQuery(url).clientId);
   }
 
-  handleUpdateConfig(clientId: number, body: unknown) {
+  async handleUpdateConfig(clientId: number, body: unknown) {
     return this.services.updateConfig(clientId, body as Record<string, unknown>);
   }
 
-  handleGenerate(body: unknown) {
+  async handleGenerate(body: unknown) {
     return this.services.generate(body as Record<string, unknown>);
   }
 
-  handleUpdatePackagePrices(body: unknown) {
+  async handleUpdatePackagePrices(body: unknown) {
     return this.services.savePackagePrices(body as Record<string, unknown>);
   }
 
-  handleSetDefaultPackagePrices(body: unknown) {
+  async handleSetDefaultPackagePrices(body: unknown) {
     return this.services.setDefaultPackagePrice(body as Record<string, unknown>);
   }
 
-  handleInvoice(url: URL) {
+  async handleInvoice(url: URL) {
     const clientId = parseOptionalIntegerParam(url.searchParams.get("clientId"), "clientId");
     if (clientId == null) {
       throw new InputValidationError("clientId required");
@@ -53,7 +53,7 @@ export class BillingHttpHandler {
     return this.services.getInvoice(clientId, url.searchParams.get("from") ?? "", url.searchParams.get("to") ?? "");
   }
 
-  handleFetchRefRates() {
+  async handleFetchRefRates() {
     return this.services.fetchReferenceRates();
   }
 
@@ -61,7 +61,7 @@ export class BillingHttpHandler {
     return this.services.getRefRateFetchStatus();
   }
 
-  handleBackfillRefRates(body: unknown) {
+  async handleBackfillRefRates(body: unknown) {
     return this.services.backfillReferenceRates(body as Record<string, unknown>);
   }
 }

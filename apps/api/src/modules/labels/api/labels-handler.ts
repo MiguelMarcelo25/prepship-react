@@ -14,11 +14,11 @@ export class LabelsHttpHandler {
     this.services = services;
   }
 
-  handleCreate(body: CreateLabelRequestDto) {
+  async handleCreate(body: CreateLabelRequestDto) {
     return this.services.create(body);
   }
 
-  handleCreateBatch(body: unknown) {
+  async handleCreateBatch(body: unknown) {
     const raw = body as Record<string, unknown>;
     if (!Array.isArray(raw.orderIds) || raw.orderIds.length === 0) {
       throw new InputValidationError("orderIds must be a non-empty array");
@@ -41,20 +41,20 @@ export class LabelsHttpHandler {
     return this.services.createBatch(dto);
   }
 
-  handleVoid(shipmentId: number) {
+  async handleVoid(shipmentId: number) {
     return this.services.void(shipmentId);
   }
 
-  handleReturn(shipmentId: number, body: ReturnLabelRequestDto) {
+  async handleReturn(shipmentId: number, body: ReturnLabelRequestDto) {
     return this.services.createReturn(shipmentId, body);
   }
 
-  handleRetrieve(orderLookup: number | string, fresh: boolean) {
+  async handleRetrieve(orderLookup: number | string, fresh: boolean) {
     return this.services.retrieve(orderLookup, fresh);
   }
 
-  handleMockLabel(shipmentId: number): Response {
-    const data = this.services.getMockLabelData(shipmentId);
+  async handleMockLabel(shipmentId: number): Promise<Response> {
+    const data = await this.services.getMockLabelData(shipmentId);
     if (!data) {
       return new Response("Mock label not found (server may have restarted)", {
         status: 404,

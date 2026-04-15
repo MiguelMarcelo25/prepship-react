@@ -329,6 +329,88 @@ if (!connectionString) {
       carriers TEXT NOT NULL,
       fetched_at BIGINT NOT NULL
     );
+
+    CREATE TABLE IF NOT EXISTS return_labels (
+      shipmentid BIGINT PRIMARY KEY,
+      returnshipmentid BIGINT,
+      returntrackingnumber TEXT,
+      reason TEXT,
+      createdat BIGINT
+    );
+
+    CREATE TABLE IF NOT EXISTS mock_labels (
+      shipment_id BIGINT PRIMARY KEY,
+      order_number TEXT,
+      tracking_number TEXT NOT NULL,
+      service_label TEXT,
+      weight_oz REAL,
+      ship_from TEXT,
+      ship_to TEXT,
+      ship_date TEXT,
+      pdf_base64 TEXT,
+      created_at BIGINT DEFAULT (EXTRACT(EPOCH FROM NOW())::bigint)
+    );
+
+    CREATE TABLE IF NOT EXISTS billing_config (
+      configid SERIAL PRIMARY KEY,
+      clientid INTEGER UNIQUE,
+      pick_pack_base_price REAL DEFAULT 2.00,
+      pick_pack_max_units INTEGER DEFAULT 1,
+      additional_unit_price REAL DEFAULT 0.50,
+      shipping_markup REAL DEFAULT 0.00,
+      storage_per_unit_per_month REAL DEFAULT 0.00,
+      pickpackfee REAL,
+      additionalunitfee REAL,
+      packagecostmarkup REAL,
+      shippingmarkuppct REAL,
+      shippingmarkupflat REAL,
+      billing_mode TEXT,
+      storagefeepercuft REAL,
+      storagefeemode TEXT,
+      palletpricingpermonth REAL,
+      palletcuft REAL,
+      active BOOLEAN DEFAULT TRUE,
+      createdat BIGINT,
+      updatedat BIGINT
+    );
+
+    CREATE TABLE IF NOT EXISTS billing_line_items (
+      id SERIAL PRIMARY KEY,
+      clientid INTEGER NOT NULL,
+      orderid BIGINT NOT NULL,
+      ordernumber TEXT NOT NULL,
+      shipdate TEXT NOT NULL,
+      linetype TEXT NOT NULL,
+      description TEXT NOT NULL,
+      qty REAL NOT NULL,
+      unitcost REAL NOT NULL,
+      totalcost REAL NOT NULL,
+      invoiced INTEGER DEFAULT 0,
+      createdat BIGINT,
+      UNIQUE (orderid, linetype, description)
+    );
+
+    CREATE INDEX IF NOT EXISTS billing_line_items_client_ship_idx ON billing_line_items(clientid, shipdate);
+
+    CREATE TABLE IF NOT EXISTS billing_ref_rates (
+      id SERIAL PRIMARY KEY,
+      wt INTEGER,
+      zipto TEXT,
+      carrier TEXT,
+      service TEXT,
+      cost REAL,
+      source TEXT,
+      fetchedat BIGINT
+    );
+
+    CREATE TABLE IF NOT EXISTS client_package_prices (
+      clientid INTEGER NOT NULL,
+      packageid INTEGER NOT NULL,
+      price REAL NOT NULL,
+      is_custom INTEGER DEFAULT 0,
+      updatedat BIGINT,
+      PRIMARY KEY (clientid, packageid)
+    );
   `);
   console.log('✓ phase-2 inventory tables ready');
 

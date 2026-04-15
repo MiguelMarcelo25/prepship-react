@@ -71,7 +71,7 @@ export function createLabelRoutes(handler: LabelsHttpHandler): RouteDef[] {
         return jsonResponse(status, { error: message, ...(err.details ?? {}) });
       }
     }),
-    route("GET", "/api/labels/mock/:shipmentId", ({ params }) => {
+    route("GET", "/api/labels/mock/:shipmentId", async ({ params }) => {
       if (!/^-?\d+$/.test(params.shipmentId ?? "")) {
         return jsonResponse(404, { error: "Not found" });
       }

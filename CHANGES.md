@@ -66,10 +66,10 @@ Pairs with [ARCHITECTURE.md](ARCHITECTURE.md), [RUNBOOK.md](RUNBOOK.md), and [TE
 | Queue | 2 | **Postgres (Supabase)** ✅ |
 | Products | 2 | **Postgres (Supabase)** ✅ |
 | Rates | 2 | **Postgres (Supabase)** ✅ |
-| Billing | 2 | SQLite fallback (empty on Render) |
-| Labels | 2 | SQLite fallback (empty on Render) |
+| Labels | 2 | **Postgres (Supabase)** ✅ |
+| Billing | 2 | **Postgres (Supabase)** ✅ |
 
-**13 of 15 modules ported.** Phase 2 nearly done — 2 modules remaining (Billing, Labels).
+**15 of 15 modules ported.** 🎉 Phase 2 complete — every repository in the system is now backed by Supabase Postgres. The SQLite fallback path in `postgres-datastore.ts` has been removed.
 
 ### Phase 2 progress notes
 
@@ -81,7 +81,9 @@ Pairs with [ARCHITECTURE.md](ARCHITECTURE.md), [RUNBOOK.md](RUNBOOK.md), and [TE
 - **Queue:** ported to `PgQueueRepository`. Added `print_queue_orders` table + `print_queue_client_status_idx` to `scripts/init-postgres.cjs`. Used `ON CONFLICT (order_id, client_id) DO UPDATE SET` for the upsert. Had to update `queue-routes.ts` + `manifests-routes.ts` + `package-routes.ts` to `await` handler calls in routes using `route()` directly (routes using `jsonRoute()` already awaited internally).
 - **Products:** ported to `PgProductRepository`. Added `sku_defaults` table to `scripts/init-postgres.cjs`. Retained the fallback-to-`inventory_skus` logic for the `getBulk` query. Products table itself was already added with the inventory schema.
 - **Rates:** ported to `PgRateRepository`. Added `rate_cache` + `carrier_cache` tables to `scripts/init-postgres.cjs`. Translated the SQLite `json_each(clients.storeIds)` query to Postgres `jsonb_array_elements_text((storeids)::jsonb)` for the store→client lookup. Service had several scattered sync repo calls that all got `await`'d. Fixed a bug in the original where `getRateSourceConfig(clientId)` was called twice in the browseRates path — now cached in a local var.
-- **Remaining Phase 2 modules** (Billing, Labels): not started. Both are larger (821 LOC and 356 LOC respectively) and will get their own commit.
+- **Labels:** ported to `PgLabelRepository` (15 methods). Added `return_labels` and `mock_labels` tables to `scripts/init-postgres.cjs`. The label-services file had 23 scattered `this.repository.X` calls — all awaited via a `replace_all` pass. Also fixed a pre-existing return-type gap in `normalizeSyncedShipment` (the object body included `providerAccountNickname` but the inline type annotation didn't) that TypeScript only flagged after the await chain changed the inference path. The label routes using `route()` needed async wrappers so the mock-label handler can return a Promise<Response>.
+- **Billing:** ported to `PgBillingRepository` — the biggest single module (821 LOC of SQLite, 15 public methods + 10 private helpers). Added `billing_config`, `billing_line_items`, `billing_ref_rates`, `client_package_prices` tables (+ index) to `scripts/init-postgres.cjs`. The `generate()` method — the most complex SQL in the project — is a single transaction that computes pick/pack fees, additional-unit fees, shipping markups, reference-rate overrides, package charges, and per-client storage fees from ledger events. Translated the SQLite `GROUP_CONCAT` in `listDetails` and `getInvoice` to Postgres `string_agg`, and the `JSON_EXTRACT(raw, '$.advancedOptions.storeId')` chains to Postgres `(raw::jsonb#>>'{advancedOptions,storeId}')::bigint`. Added `Awaited<...>` to route handlers that passed the generate-invoice result to a synchronous renderer.
+- **SQLite fallback removed**: `apps/api/src/app/providers/postgres-datastore.ts` no longer opens a sqlite file or imports any `Sqlite*Repository`. The `sqliteFallbackPath` argument is retained as `_sqliteFallbackPath` to keep the provider signature stable with `memory-datastore.ts` + `sqlite-datastore.ts`, but is intentionally unused.
 
 ---
 

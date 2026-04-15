@@ -55,10 +55,14 @@ export class BillingServices {
     this.referenceRateFetcher = referenceRateFetcher;
   }
 
-  getConfig(): BillingConfigDto[] {
-    const configs = new Map(this.repository.listConfigRecords().map((record) => [record.clientId, record]));
+  async getConfig(): Promise<BillingConfigDto[]> {
+    const [configRecords, clients] = await Promise.all([
+      this.repository.listConfigRecords(),
+      this.repository.listBillableClients(),
+    ]);
+    const configs = new Map(configRecords.map((record) => [record.clientId, record]));
 
-    return this.repository.listBillableClients().map((client) => {
+    return clients.map((client) => {
       const config = configs.get(client.clientId);
       return {
         clientId: client.clientId,
@@ -77,7 +81,7 @@ export class BillingServices {
     });
   }
 
-  getSummary(query: BillingSummaryQuery): BillingSummaryDto[] {
+  async getSummary(query: BillingSummaryQuery): Promise<BillingSummaryDto[]> {
     if (!query.from || !query.to) {
       throw new Error("from and to required");
     }
@@ -87,7 +91,7 @@ export class BillingServices {
     return this.repository.listSummary(query);
   }
 
-  getDetails(query: BillingDetailsQuery) {
+  async getDetails(query: BillingDetailsQuery) {
     if (!query.from || !query.to || !query.clientId) {
       throw new Error("from, to, clientId required");
     }
@@ -101,14 +105,14 @@ export class BillingServices {
     });
   }
 
-  getPackagePrices(clientId?: number): BillingPackagePriceDto[] {
+  async getPackagePrices(clientId?: number): Promise<BillingPackagePriceDto[]> {
     if (!clientId) {
       throw new Error("clientId required");
     }
     return this.repository.listPackagePrices(clientId);
   }
 
-  getInvoice(clientId: number, from: string, to: string) {
+  async getInvoice(clientId: number, from: string, to: string) {
     if (!clientId || !from || !to) {
       throw new Error("from, to, clientId required");
     }
@@ -131,12 +135,12 @@ export class BillingServices {
       };
     }
 
-    const storeIds = this.repository.listReferenceRateStoreIds();
+    const storeIds = await this.repository.listReferenceRateStoreIds();
     if (storeIds.length === 0) {
       return { ok: false, message: "No reference_rate clients configured" };
     }
 
-    const orders = this.repository.listOrdersMissingReferenceRatesForFetch(storeIds);
+    const orders = await this.repository.listOrdersMissingReferenceRatesForFetch(storeIds);
     if (orders.length === 0) {
       return { ok: true, message: "All orders already have ref rates", total: 0 };
     }
@@ -185,10 +189,10 @@ export class BillingServices {
     };
   }
 
-  backfillReferenceRates(input: BackfillBillingReferenceRatesInput): BackfillBillingReferenceRatesResult {
-    const orders = this.repository.listOrdersMissingReferenceRatesForBackfill(input);
+  async backfillReferenceRates(input: BackfillBillingReferenceRatesInput): Promise<BackfillBillingReferenceRatesResult> {
+    const orders = await this.repository.listOrdersMissingReferenceRatesForBackfill(input);
     if (orders.length === 0) {
-      const storeIds = this.repository.listReferenceRateStoreIds();
+      const storeIds = await this.repository.listReferenceRateStoreIds();
       if (storeIds.length === 0) {
         return { ok: true, filled: 0, missing: 0, message: "No reference_rate clients configured" };
       }
@@ -206,7 +210,7 @@ export class BillingServices {
         continue;
       }
 
-      const rates = this.repository.findCachedReferenceRateCandidates(weightOz, zip5);
+      const rates = await this.repository.findCachedReferenceRateCandidates(weightOz, zip5);
       if (!rates || rates.length === 0) {
         missing += 1;
         continue;
@@ -219,19 +223,19 @@ export class BillingServices {
         continue;
       }
 
-      this.repository.saveBackfilledReferenceRates(order.orderId, refUsps, refUps);
+      await this.repository.saveBackfilledReferenceRates(order.orderId, refUsps, refUps);
       filled += 1;
     }
 
     return { ok: true, filled, missing, total: orders.length };
   }
 
-  updateConfig(clientId: number, input: UpdateBillingConfigInput) {
-    this.repository.upsertConfig(clientId, input);
+  async updateConfig(clientId: number, input: UpdateBillingConfigInput) {
+    await this.repository.upsertConfig(clientId, input);
     return { ok: true };
   }
 
-  generate(input: GenerateBillingInput): GenerateBillingResult {
+  async generate(input: GenerateBillingInput): Promise<GenerateBillingResult> {
     if (!input.from || !input.to) {
       throw new Error("from and to required");
     }
@@ -241,18 +245,18 @@ export class BillingServices {
     return this.repository.generate(input);
   }
 
-  savePackagePrices(input: SaveBillingPackagePricesInput) {
+  async savePackagePrices(input: SaveBillingPackagePricesInput) {
     if (!input.clientId || !Array.isArray(input.prices)) {
       throw new Error("clientId and prices[] required");
     }
-    this.repository.savePackagePrices({
+    await this.repository.savePackagePrices({
       clientId: input.clientId,
       prices: input.prices,
     });
     return { ok: true };
   }
 
-  setDefaultPackagePrice(input: SetDefaultBillingPackagePriceInput): SetDefaultBillingPackagePriceResult {
+  async setDefaultPackagePrice(input: SetDefaultBillingPackagePriceInput): Promise<SetDefaultBillingPackagePriceResult> {
     if (!input.packageId || input.price == null) {
       throw new Error("packageId and price required");
     }
