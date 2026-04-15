@@ -76,7 +76,9 @@ export function SidebarOrders({
       <div className="flex flex-col gap-1">
         {SIDEBAR_STATUSES.map((status) => {
           const meta = STATUS_META[status]
-          const isActive = isOrdersView && currentStatus === status && activeStore == null
+          const isStatusActive = isOrdersView && currentStatus === status
+          const isFullyActive = isStatusActive && activeStore == null
+          const isDrilledIn = isStatusActive && activeStore != null
           const isExpanded = expanded.has(status)
           const allStores = sections[status]?.stores || []
           const storeList = filter
@@ -97,9 +99,11 @@ export function SidebarOrders({
                 }}
                 className={[
                   'group flex h-11 w-full items-center justify-start gap-3 rounded-xl px-3 transition-colors',
-                  isActive
+                  isFullyActive
                     ? 'bg-indigo-50 font-semibold text-indigo-700 dark:bg-indigo-500/10 dark:text-indigo-300'
-                    : 'text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-muted)] hover:text-[var(--color-text-primary)]',
+                    : isDrilledIn
+                      ? 'bg-indigo-50/50 text-indigo-600 dark:bg-indigo-500/5 dark:text-indigo-300/80'
+                      : 'text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-muted)] hover:text-[var(--color-text-primary)]',
                 ].join(' ')}
               >
                 <div
@@ -110,16 +114,18 @@ export function SidebarOrders({
                 >
                   <IconChevronRight />
                 </div>
-                <IconBadge tone={meta.tone} active={isActive}>
+                <IconBadge tone={meta.tone} active={isStatusActive}>
                   {meta.icon}
                 </IconBadge>
                 <span className="flex-1 truncate text-left text-[14.5px]">{meta.label}</span>
                 <span
                   className={[
                     'inline-flex h-[22px] min-w-[40px] items-center justify-center rounded-full px-3 text-[12px] font-bold tabular-nums ml-2',
-                    isActive
+                    isFullyActive
                       ? 'bg-indigo-600 text-white dark:bg-indigo-500'
-                      : 'bg-[var(--color-bg-subtle)] text-[var(--color-text-secondary)]',
+                      : isDrilledIn
+                        ? 'bg-indigo-100 text-indigo-700 dark:bg-indigo-500/20 dark:text-indigo-300'
+                        : 'bg-[var(--color-bg-subtle)] text-[var(--color-text-secondary)]',
                   ].join(' ')}
                 >
                   {counts ? sections[status].total.toLocaleString() : '—'}
