@@ -21,11 +21,16 @@ export type PgClient = pg.PoolClient;
  * pooler on port 6543 instead — it lifts the 15-session ceiling entirely.
  */
 export function createPgPool(connectionString: string): PgPool {
-  return new Pool({
+  const pool = new Pool({
     connectionString,
     ssl: { rejectUnauthorized: false },
     max: 3,
     idleTimeoutMillis: 10_000,
     connectionTimeoutMillis: 10_000,
   });
+  // Prevent unhandled pool errors from crashing the process
+  pool.on("error", (err) => {
+    console.error("[pg-pool] Idle client error:", err.message);
+  });
+  return pool;
 }
