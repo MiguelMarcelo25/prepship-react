@@ -5,7 +5,7 @@ import type {
   OrdersByStatusDto,
   OrdersByStatusStoreDto,
 } from "../../../../../../../packages/contracts/src/init/contracts.ts";
-import type { InitRepository } from "../application/init-repository.ts";
+import type { CountsFilter, InitRepository } from "../application/init-repository.ts";
 
 interface ClientStoreRow {
   name: string;
@@ -59,12 +59,16 @@ export class SqliteInitRepository implements InitRepository {
     return stores;
   }
 
-  async getCounts(): Promise<InitCountsDto> {
+  async getCounts(filter?: CountsFilter): Promise<InitCountsDto> {
     const placeholders = this.excludedStoreIds.map(() => "?").join(", ");
     const excludeClause = this.excludedStoreIds.length > 0
       ? `AND o.storeId NOT IN (${placeholders})`
       : "";
-    const params = [...this.excludedStoreIds];
+    const params: Array<string | number> = [...this.excludedStoreIds];
+
+    let dateClause = "";
+    if (filter?.dateStart) { dateClause += " AND o.orderDate >= ?"; params.push(filter.dateStart); }
+    if (filter?.dateEnd) { dateClause += " AND o.orderDate <= ?"; params.push(filter.dateEnd); }
 
     // Use the same logic as the orders list query so counts match:
     // awaiting_shipment orders with external_shipped, externallyFulfilled,
@@ -98,7 +102,7 @@ export class SqliteInitRepository implements InitRepository {
       FROM orders o
       LEFT JOIN order_local ol ON o.orderId = ol.orderId
       ${shipmentJoin}
-      WHERE 1=1 ${excludeClause}
+      WHERE 1=1 ${excludeClause} ${dateClause}
       GROUP BY orderStatus
     `).all(...params) as OrdersByStatusDto[];
 
@@ -107,7 +111,7 @@ export class SqliteInitRepository implements InitRepository {
       FROM orders o
       LEFT JOIN order_local ol ON o.orderId = ol.orderId
       ${shipmentJoin}
-      WHERE 1=1 ${excludeClause}
+      WHERE 1=1 ${excludeClause} ${dateClause}
       GROUP BY orderStatus, o.storeId
       ORDER BY cnt DESC
     `).all(...params) as OrdersByStatusStoreDto[];

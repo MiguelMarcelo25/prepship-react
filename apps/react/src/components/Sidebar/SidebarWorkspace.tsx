@@ -31,6 +31,42 @@ const WORKSPACE_ITEMS: WorkspaceItem[] = [
   { view: 'manifests', icon: <IconFileText />, label: 'Manifests', tone: 'teal' },
 ]
 
+function WorkspaceButton({
+  item,
+  active,
+  onClick,
+}: {
+  item: WorkspaceItem
+  active: boolean
+  onClick: () => void
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={[
+        'group flex h-11 w-full items-center justify-start gap-3 rounded-xl px-3 transition-colors',
+        active
+          ? 'bg-indigo-50 font-semibold text-indigo-700 dark:bg-indigo-500/10 dark:text-indigo-300'
+          : 'text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-muted)] hover:text-[var(--color-text-primary)]',
+      ].join(' ')}
+    >
+      <div
+        className={[
+          'flex shrink-0 items-center justify-center w-4 text-[14px] transition-all',
+          active ? 'opacity-100 text-red-500' : 'opacity-0 group-hover:opacity-100',
+        ].join(' ')}
+      >
+        &bull;
+      </div>
+      <IconBadge tone={item.tone} active={active}>
+        {item.icon}
+      </IconBadge>
+      <span className="flex-1 truncate text-left text-[14.5px]">{item.label}</span>
+    </button>
+  )
+}
+
 interface SidebarWorkspaceProps {
   currentView: ViewType
   onSelect: (view: ViewType) => void
@@ -42,36 +78,27 @@ export function SidebarWorkspace({ currentView, onSelect, filter = '' }: Sidebar
     ? WORKSPACE_ITEMS.filter((item) => item.label.toLowerCase().includes(filter.toLowerCase()))
     : WORKSPACE_ITEMS
 
-  if (filter && filteredItems.length === 0 && !'Workspace'.toLowerCase().includes(filter.toLowerCase())) {
+  if (filter && filteredItems.length === 0 && !'workspace'.includes(filter.toLowerCase())) {
     return null
   }
 
   return (
     <div>
-      <div className="mx-4 mb-3 h-px bg-[var(--color-border-strong)]" />
+      <div className="mb-3 px-1">
+        <div className="pt-4 text-[12px] font-semibold uppercase tracking-[0.08em] text-[var(--color-text-tertiary)]">
+          <span className="text-white dark:text-white">&bull;</span>&ensp;Workspace
+        </div>
+      </div>
 
       <div className="flex flex-col gap-1">
-        {filteredItems.map((tool) => {
-          const isActive = currentView === tool.view
-          return (
-            <button
-              key={tool.view}
-              type="button"
-              onClick={() => onSelect(tool.view)}
-              className={[
-                'group flex h-10 w-full items-center justify-start gap-3 rounded-lg pl-10 pr-3 text-[13px] transition-colors',
-                isActive
-                  ? 'bg-indigo-50 font-medium text-indigo-700 dark:bg-indigo-500/10 dark:text-indigo-300'
-                  : 'text-[var(--color-text-tertiary)] hover:bg-[var(--color-bg-muted)] hover:text-[var(--color-text-primary)]',
-              ].join(' ')}
-            >
-              <IconBadge tone={tool.tone} active={isActive} size="sm">
-                {tool.icon}
-              </IconBadge>
-              <span className="flex-1 truncate text-left">{tool.label}</span>
-            </button>
-          )
-        })}
+        {filteredItems.map((item) => (
+          <WorkspaceButton
+            key={item.view}
+            item={item}
+            active={currentView === item.view}
+            onClick={() => onSelect(item.view)}
+          />
+        ))}
       </div>
     </div>
   )

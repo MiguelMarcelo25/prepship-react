@@ -716,7 +716,7 @@ export default function OrdersView({
         }
       })()
 
-  const { orders, total, pages, currentPage, loading, error, refetch: refetchOrders } = useOrders(currentStatus, {
+  const { orders, total, pages, currentPage, loading, refreshing, error, refetch: refetchOrders } = useOrders(currentStatus, {
     page,
     pageSize: 50,
     storeId: activeStore ?? undefined,
@@ -2708,7 +2708,17 @@ export default function OrdersView({
         <div className="content-split">
           <div className="orders-section" id="ordersSection">
             <div className="orders-wrap">
-              {loading ? (
+              {(loading || refreshing) && (
+                <div className="w-full h-0.5 overflow-hidden" style={{ background: 'var(--color-bg-muted, #f3f4f6)' }}>
+                  <div
+                    className="h-full bg-indigo-500"
+                    style={{ width: '33%', animation: 'refreshbar 1s ease-in-out infinite alternate' }}
+                  />
+                  <style>{`@keyframes refreshbar { from { transform: translateX(-100%); } to { transform: translateX(300%); } }`}</style>
+                </div>
+              )}
+
+              {loading && orders.length === 0 ? (
                 <div id="loadingState" className="loading">
                   <div className="spinner" />
                   <div style={{ fontSize: 12, marginTop: 4 }}>Loading orders…</div>
@@ -2721,7 +2731,7 @@ export default function OrdersView({
                 </div>
               ) : null}
 
-              {!loading && !error && orderedFilteredOrders.length > 0 ? (
+              {!error && orderedFilteredOrders.length > 0 ? (
                 <table className="orders-table" id="ordersTable">
                   <thead id="tableHead">
                     <tr>

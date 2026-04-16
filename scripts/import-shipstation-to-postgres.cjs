@@ -303,7 +303,7 @@ async function upsertShipmentsBatch(pg, shipments, accountClientId) {
     }
 
     // 3. Paginate orders for each status we care about
-    const statuses = ['awaiting_shipment', 'shipped'];
+    const statuses = ['awaiting_shipment', 'shipped', 'cancelled'];
     let accountOrderCount = 0;
     for (const status of statuses) {
       let page = 1;

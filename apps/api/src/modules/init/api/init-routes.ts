@@ -9,7 +9,7 @@ function inputErrorStatus(error: unknown): number {
 export function createInitRoutes(handler: InitHttpHandler): RouteDef[] {
   return [
     jsonRoute("GET", "/api/init-data", () => handler.handleInitData(), { getErrorStatus: inputErrorStatus }),
-    jsonRoute("GET", "/api/counts", () => handler.handleCounts(), { getErrorStatus: inputErrorStatus }),
+    jsonRoute("GET", "/api/counts", ({ url }) => handler.handleCounts(url), { getErrorStatus: inputErrorStatus }),
     jsonRoute("GET", "/api/stores", () => handler.handleStores(), { getErrorStatus: inputErrorStatus }),
     jsonRoute("GET", "/api/carriers", () => handler.handleCarriers(), { getErrorStatus: inputErrorStatus }),
     jsonRoute("GET", "/api/carrier-accounts", () => handler.handleCarrierAccounts(), { getErrorStatus: inputErrorStatus }),

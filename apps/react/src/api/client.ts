@@ -365,8 +365,12 @@ class ApiClient {
   /**
    * GET /counts
    */
-  async fetchCounts(): Promise<InitCountsDto> {
-    return this.request<InitCountsDto>("/counts", { method: "GET" });
+  async fetchCounts(filter?: { dateStart?: string; dateEnd?: string }): Promise<InitCountsDto> {
+    const params = new URLSearchParams();
+    if (filter?.dateStart) params.set('dateStart', filter.dateStart);
+    if (filter?.dateEnd) params.set('dateEnd', filter.dateEnd);
+    const qs = params.toString();
+    return this.request<InitCountsDto>(`/counts${qs ? `?${qs}` : ''}`, { method: "GET" });
   }
 
   /**

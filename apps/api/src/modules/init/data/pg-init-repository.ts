@@ -5,7 +5,7 @@ import type {
   OrdersByStatusDto,
   OrdersByStatusStoreDto,
 } from "../../../../../../../packages/contracts/src/init/contracts.ts";
-import type { InitRepository } from "../application/init-repository.ts";
+import type { CountsFilter, InitRepository } from "../application/init-repository.ts";
 
 export class PgInitRepository implements InitRepository {
   private readonly pool: PgPool;
@@ -67,7 +67,7 @@ export class PgInitRepository implements InitRepository {
     return stores;
   }
 
-  async getCounts(): Promise<InitCountsDto> {
+  async getCounts(filter?: CountsFilter): Promise<InitCountsDto> {
     const params: Array<string | number> = [];
     let idx = 1;
     const next = () => `$${idx++}`;
@@ -77,6 +77,10 @@ export class PgInitRepository implements InitRepository {
       ? `AND o.storeid NOT IN (${placeholders})`
       : "";
     if (this.excludedStoreIds.length > 0) params.push(...this.excludedStoreIds);
+
+    let dateClause = "";
+    if (filter?.dateStart) { dateClause += ` AND o.orderdate >= ${next()}`; params.push(filter.dateStart); }
+    if (filter?.dateEnd) { dateClause += ` AND o.orderdate <= ${next()}`; params.push(filter.dateEnd); }
 
     // Use the same logic as the orders list query so counts match:
     // - awaiting_shipment orders with external_shipped, externallyFulfilled,
@@ -113,7 +117,7 @@ export class PgInitRepository implements InitRepository {
       FROM orders o
       LEFT JOIN order_local ol ON o.orderid = ol.orderid
       ${shipmentJoin}
-      WHERE 1=1 ${excludeClause}
+      WHERE 1=1 ${excludeClause} ${dateClause}
       GROUP BY "orderStatus"
     `;
 
@@ -124,7 +128,7 @@ export class PgInitRepository implements InitRepository {
       FROM orders o
       LEFT JOIN order_local ol ON o.orderid = ol.orderid
       ${shipmentJoin}
-      WHERE 1=1 ${excludeClause}
+      WHERE 1=1 ${excludeClause} ${dateClause}
       GROUP BY "orderStatus", o.storeid
       ORDER BY cnt DESC
     `;

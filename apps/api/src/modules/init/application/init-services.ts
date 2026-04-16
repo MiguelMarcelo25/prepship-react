@@ -46,8 +46,8 @@ export class InitServices {
     };
   }
 
-  async getCounts(): Promise<InitCountsDto> {
-    return this.repository.getCounts();
+  async getCounts(filter?: { dateStart?: string; dateEnd?: string }): Promise<InitCountsDto> {
+    return this.repository.getCounts(filter);
   }
 
   async getStores(): Promise<InitStoreDto[]> {

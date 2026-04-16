@@ -11,8 +11,10 @@ export class InitHttpHandler {
     return this.services.getInitData();
   }
 
-  handleCounts() {
-    return this.services.getCounts();
+  handleCounts(url: URL) {
+    const dateStart = url.searchParams.get('dateStart') || undefined;
+    const dateEnd = url.searchParams.get('dateEnd') || undefined;
+    return this.services.getCounts({ dateStart, dateEnd });
   }
 
   handleStores() {

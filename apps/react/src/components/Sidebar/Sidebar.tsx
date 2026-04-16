@@ -17,6 +17,8 @@ interface SidebarProps {
   onCloseMobileMenu?: () => void
   onSelectStore?: (storeId: number | null) => void
   activeStore?: number | null
+  dateStart?: string
+  dateEnd?: string
 }
 
 export default function Sidebar({
@@ -29,6 +31,8 @@ export default function Sidebar({
   onCloseMobileMenu,
   onSelectStore,
   activeStore,
+  dateStart,
+  dateEnd,
 }: SidebarProps) {
   const [sidebarFilter, setSidebarFilter] = useState('')
   const [peeking, setPeeking] = useState(false)
@@ -47,9 +51,6 @@ export default function Sidebar({
   }
 
   const handleSelectStore = (status: SidebarOrderStatus, storeId: number) => {
-    // Order matters: onSelectStatus resets activeStore to null inside Home, so
-    // we need to set the status FIRST and then the store, otherwise the status
-    // change wipes out the store selection in the same React batch.
     onSelectStatus(status)
     onSelectStore?.(storeId)
     onCloseMobileMenu?.()
@@ -62,12 +63,14 @@ export default function Sidebar({
 
   return (
     <>
+      {/* Spacer that pushes main content right when sidebar is pinned */}
       <div
         className="shrink-0 transition-[width] duration-300 ease-out"
         style={{ width: pinned ? 288 : 0 }}
         aria-hidden
       />
 
+      {/* Hover trigger strip when sidebar is collapsed */}
       {!pinned && (
         <div
           className="fixed left-0 top-0 z-30 h-full w-3"
@@ -76,9 +79,12 @@ export default function Sidebar({
         />
       )}
 
+      {/* Sidebar panel */}
       <aside
         className={[
-          'fixed left-0 top-0 bottom-0 z-40 flex w-[288px] flex-col overflow-hidden border-r border-[var(--color-border-default)] bg-[var(--color-bg-surface)] font-sans transition-[transform,box-shadow] duration-300 ease-out will-change-transform',
+          'fixed left-0 top-0 bottom-0 z-40 flex w-[288px] flex-col overflow-hidden',
+          'border-r border-[var(--color-border-default)] bg-[var(--color-bg-surface)]',
+          'font-sans transition-[transform,box-shadow] duration-300 ease-out will-change-transform',
           visible ? 'translate-x-0' : '-translate-x-full',
           !pinned && peeking ? 'shadow-2xl' : 'shadow-none',
         ].join(' ')}
@@ -90,10 +96,10 @@ export default function Sidebar({
         <SidebarFilter
           value={sidebarFilter}
           onChange={setSidebarFilter}
-          placeholder="Search for the store..."
+          placeholder="Search stores & tools..."
         />
 
-        <nav className="modern-scroll flex flex-1 flex-col gap-6 overflow-y-auto px-4 pt-6 pb-6">
+        <nav className="modern-scroll flex flex-1 flex-col gap-6 overflow-y-auto px-4 pt-2 pb-6">
           <SidebarOrders
             currentStatus={currentStatus}
             isOrdersView={currentView === 'orders'}
@@ -102,7 +108,11 @@ export default function Sidebar({
             onSelectStatus={handleSelectStatus}
             onSelectStore={handleSelectStore}
             filter={sidebarFilter}
+            dateStart={dateStart}
+            dateEnd={dateEnd}
           />
+
+          <div className="mx-2 h-px bg-[var(--color-border-default)]" />
 
           <SidebarWorkspace
             currentView={currentView}

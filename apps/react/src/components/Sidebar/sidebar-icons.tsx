@@ -2,14 +2,14 @@ import type { ReactNode } from 'react'
 import {
   Home,
   Search,
-  Boxes,
-  MapPin,
-  Package,
-  DollarSign,
-  BarChart3,
-  Settings,
-  Receipt,
-  FileText,
+  Warehouse,
+  MapPinned,
+  PackageOpen,
+  BadgeDollarSign,
+  TrendingUp,
+  SlidersHorizontal,
+  ReceiptText,
+  ScrollText,
   ChevronRight,
   X,
   Inbox,
@@ -20,8 +20,8 @@ import {
   User,
   LogOut,
   ChevronDown,
-  CheckCircle,
-  XCircle,
+  CircleCheckBig,
+  CircleX,
   Moon,
   Sun,
 } from 'lucide-react'
@@ -117,35 +117,35 @@ export function IconSearch({ className = '' }) {
 }
 
 export function IconBoxes({ className = '' }) {
-  return <Boxes className={className} size={ICON_SIZE} strokeWidth={STROKE_WIDTH} />
+  return <Warehouse className={className} size={ICON_SIZE} strokeWidth={STROKE_WIDTH} />
 }
 
 export function IconMapPin({ className = '' }) {
-  return <MapPin className={className} size={ICON_SIZE} strokeWidth={STROKE_WIDTH} />
+  return <MapPinned className={className} size={ICON_SIZE} strokeWidth={STROKE_WIDTH} />
 }
 
 export function IconPackage({ className = '' }) {
-  return <Package className={className} size={ICON_SIZE} strokeWidth={STROKE_WIDTH} />
+  return <PackageOpen className={className} size={ICON_SIZE} strokeWidth={STROKE_WIDTH} />
 }
 
 export function IconDollarSign({ className = '' }) {
-  return <DollarSign className={className} size={ICON_SIZE} strokeWidth={STROKE_WIDTH} />
+  return <BadgeDollarSign className={className} size={ICON_SIZE} strokeWidth={STROKE_WIDTH} />
 }
 
 export function IconBarChart({ className = '' }) {
-  return <BarChart3 className={className} size={ICON_SIZE} strokeWidth={STROKE_WIDTH} />
+  return <TrendingUp className={className} size={ICON_SIZE} strokeWidth={STROKE_WIDTH} />
 }
 
 export function IconSettings({ className = '' }) {
-  return <Settings className={className} size={ICON_SIZE} strokeWidth={STROKE_WIDTH} />
+  return <SlidersHorizontal className={className} size={ICON_SIZE} strokeWidth={STROKE_WIDTH} />
 }
 
 export function IconReceipt({ className = '' }) {
-  return <Receipt className={className} size={ICON_SIZE} strokeWidth={STROKE_WIDTH} />
+  return <ReceiptText className={className} size={ICON_SIZE} strokeWidth={STROKE_WIDTH} />
 }
 
 export function IconFileText({ className = '' }) {
-  return <FileText className={className} size={ICON_SIZE} strokeWidth={STROKE_WIDTH} />
+  return <ScrollText className={className} size={ICON_SIZE} strokeWidth={STROKE_WIDTH} />
 }
 
 export function IconChevronRight({ className = '' }) {
@@ -189,11 +189,11 @@ export function IconLogOut({ className = '' }) {
 }
 
 export function IconCheckCircle({ className = '' }) {
-  return <CheckCircle className={className} size={ICON_SIZE} strokeWidth={STROKE_WIDTH} />
+  return <CircleCheckBig className={className} size={ICON_SIZE} strokeWidth={STROKE_WIDTH} />
 }
 
 export function IconXCircle({ className = '' }) {
-  return <XCircle className={className} size={ICON_SIZE} strokeWidth={STROKE_WIDTH} />
+  return <CircleX className={className} size={ICON_SIZE} strokeWidth={STROKE_WIDTH} />
 }
 
 export function IconMoon({ className = '' }) {

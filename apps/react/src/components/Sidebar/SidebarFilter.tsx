@@ -12,31 +12,30 @@ export function SidebarFilter({
   placeholder = 'Search for the store...',
 }: SidebarFilterProps) {
   return (
-    <div className="px-4 py-4">
-        <div className="relative flex h-10 w-full items-center border-white">
+    <div className="px-4 pt-4 pb-2">
+      <div className="flex h-9 w-full items-center rounded-lg bg-[var(--color-bg-muted)] px-3">
+        <span className="shrink-0 text-[var(--color-text-tertiary)]">
           <IconSearch />
-          
-          <input
-            type="text"
-            placeholder={placeholder}
-            value={value}
-            onChange={(event) => onChange(event.target.value)}
-            className="w-64 border border-white"
-          />
+        </span>
 
-          {value ? (
-            <button
-              type="button"
-              onClick={() => onChange('')}
-              className="flex h-6 w-6 items-center justify-center rounded-lg transition-colors hover:bg-[var(--color-bg-subtle)]"
-            >
-              <IconX />
-            </button>
-          ) : (
-            <div className="hidden items-center gap-1 overflow-hidden sm:flex">
-              
-            </div>
-          )}
+        <input
+          type="text"
+          placeholder={placeholder}
+          value={value}
+          onChange={(event) => onChange(event.target.value)}
+          className="ml-2 flex-1 bg-transparent text-[13px] outline-none border-none shadow-none ring-0 focus:outline-none focus:border-none focus:shadow-none focus:ring-0"
+          style={{ boxShadow: 'none' }}
+        />
+
+        {value && (
+          <button
+            type="button"
+            onClick={() => onChange('')}
+            className="ml-1 flex h-5 w-5 shrink-0 items-center justify-center rounded text-[var(--color-text-tertiary)] hover:text-[var(--color-text-primary)] outline-none focus:outline-none"
+          >
+            <IconX />
+          </button>
+        )}
       </div>
     </div>
   )
