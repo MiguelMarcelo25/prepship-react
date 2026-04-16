@@ -95,11 +95,13 @@ export class PgShipmentRepository implements ShipmentRepository {
 
   async upsertShipmentBatch(shipments: ShipmentSyncRecord[]): Promise<void> {
     if (shipments.length === 0) return;
-    // Multi-row VALUES upsert. 19 columns × 500 rows = 9,500 params, well under
-    // Postgres's 65,535 parameter cap. Chunk to stay comfortably below it.
+    // Deduplicate by shipmentId — Postgres ON CONFLICT cannot affect a row twice in one statement
+    const byId = new Map<number | string, ShipmentSyncRecord>();
+    for (const s of shipments) byId.set(s.shipmentId, s);
+    const deduped = [...byId.values()];
     const CHUNK = 500;
-    for (let start = 0; start < shipments.length; start += CHUNK) {
-      const chunk = shipments.slice(start, start + CHUNK);
+    for (let start = 0; start < deduped.length; start += CHUNK) {
+      const chunk = deduped.slice(start, start + CHUNK);
       const placeholders: string[] = [];
       const values: unknown[] = [];
       let p = 1;
